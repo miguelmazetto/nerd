@@ -32,7 +32,6 @@ var __LAZY_RES_WRITE = __NERD_Create_Var_Unscoped_Anon(
 	{
 		arg = __NERD_VARARGS[0];
 	}
-	
 	((uWS::HttpResponse<false>*)__NERD_OBJECT(__NERD_THIS)->bind)->write((std::string)arg);
 	return NerdCore::Global::null;
 });

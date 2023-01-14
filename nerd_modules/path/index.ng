@@ -15,7 +15,7 @@ path.join = function()
 {
 	var joined = "";
 	
-	var fnArgs = arguments();
+	var fnArgs = arguments;
 	
 	for(var i = 0; i < length_of(fnArgs); i++)
 	{

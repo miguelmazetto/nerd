@@ -16,8 +16,8 @@
   [
     "nerd",
     "nerdlang",
-	"http",
-	"web"
+	  "http",
+	  "web"
   ],
   "license": "MIT",
   "licenses": [
@@ -38,38 +38,11 @@
     "read_only": [],
     "lib": 
     {
-		"win32":
-		[
-			"-D_WIN32_WINNT=0x0600",
-			"-Wno-narrowing",
-			"-D_GNU_SOURCE",
-			"-I{__EXTERN__}/libuv/include/", 
-			"-I{__EXTERN__}/libuv/src/",
-			"-D_CRT_SECURE_NO_DEPRECATE",
-			"-D_CRT_NONSTDC_NO_DEPRECATE", 
-			"{__EXTERN__}/libuv/src/*.h",
-			"{__EXTERN__}/libuv/src/*.c",
-			"{__EXTERN__}/libuv/src/win/*.h",
-			"{__EXTERN__}/libuv/src/win/*.c",
-			"-I {__MODULE__}/httplib/uWS/",
-			"-I {__MODULE__}/httplib/uSockets/",
-			"{__MODULE__}/httplib/uSockets/*.c",
-			"{__MODULE__}/httplib/uSockets/crypto/*.c",
-			"{__MODULE__}/httplib/uSockets/eventing/*.c",
-			"-DLIBUS_NO_SSL",
-			"-DUWS_NO_ZLIB",
-			"-fpermissive",
-			"-w",
-			"-lm",
-			"-ladvapi32",
-			"-liphlpapi",
-			"-lpsapi",
-			"-lshell32",
-			"-luser32 ",
-			"-luserenv",
-			"-lwsock32",
-			"-lws2_32"
-		]
+      "cmake_cached": { "name": "uSockets", "path": "__EXTERN__/uSockets" },
+      "cmake": ["add_subdirectory(\"__EXTERN__/uSockets\" \"__CACHE__/uSockets\")",
+                "target_link_libraries(__PROJ__ uSockets)",
+                "target_include_directories(__PROJ__ PRIVATE __EXTERN__/uWebSockets)",
+                "target_compile_definitions(__PROJ__ PRIVATE UWS_NO_ZLIB)"]
     }
   }
 }

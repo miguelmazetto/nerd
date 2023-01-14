@@ -5,7 +5,7 @@ var date = {};
 date.now = function()
 {
 	{{
-		return NerdCore::VAR(std::chrono::duration_cast<std::chrono::milliseconds>(
+		return NerdCore::VAR((double)std::chrono::duration_cast<std::chrono::milliseconds>(
 		  std::chrono::system_clock::now().time_since_epoch()
 	   ).count());
 	}}

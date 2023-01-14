@@ -6,7 +6,7 @@
 		{
 			try
 			{
-				_fn();
+				_fn(__NERD_THIS);
 			}
 			catch(NerdCore::VAR e)
 			{

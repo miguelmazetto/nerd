@@ -1,7 +1,7 @@
 {
   "name": "child_process",
   "description": "Nerd base child process module",
-  "main": "index.nf",
+  "main": "index.ng",
   "bugs":
   {
     "url": "https://github.com/Nerdlang/Nerd/issues"

@@ -53,5 +53,6 @@
   },
   "homepage": "https://nerdlang.org",
   "dependencies": {
+    "acorn": "^8.8.1"
   }
 }

@@ -21,11 +21,11 @@
 
 */
 
-var console = {};
+var _console = {};
 
-console.log = function()
+_console.log = function()
 {
-	var _args = arguments();
+	var _args = arguments;
 	for(var i = 0; i < length_of(_args); i++)
 	{
 		if(i > 0)
@@ -43,9 +43,9 @@ console.log = function()
 	}}
 };
 
-console.error = function()
+_console.error = function()
 {
-	var _args = arguments();
+	var _args = arguments;
 	for(var i = 0; i < length_of(_args); i++)
 	{
 		if(i > 0)
@@ -63,9 +63,9 @@ console.error = function()
 	}}
 };
 
-console.write = function()
+_console.write = function()
 {
-	var _args = arguments();
+	var _args = arguments;
 	for(var i = 0; i < length_of(_args); i++)
 	{
 		if(i > 0)
@@ -79,5 +79,9 @@ console.write = function()
 		}}
 	}
 };
-
-return console;
+{{
+	#ifdef console
+		console = _console;
+	#endif
+}}
+return _console;

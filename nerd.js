@@ -1,644 +1,856 @@
-/*
-	Copyright (c) 2021 NerdLang - Adrien THIERRY and contributors
+let acorn = require("acorn")
+const fs = require("fs");
+const path = require("path");
+const process = require("process");
+const { execSync } = require("child_process");
+const { exit } = require("process");
 
-	Permission is hereby granted, free of charge, to any person obtaining a copy
-	of this software and associated documentation files (the "Software"), to deal
-	in the Software without restriction, including without limitation the rights
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-	copies of the Software, and to permit persons to whom the Software is
-	furnished to do so, subject to the following conditions:
+let nativeL = new acorn.TokenType("{{", {beforeExpr: true, startsExpr: true})
 
-	The above copyright notice and this permission notice shall be included in all
-	copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-	SOFTWARE.
-
-*/
-
-global.fs = require("fs");
-global.os = require("os");
-global.path = require("path");
-global.process = require("process");
-global.child_process = require("child_process");
-global.execSync = global.child_process.execSync;
-
-global.PACKAGE = JSON.parse(global.fs.readFileSync(global.path.join(__dirname, "package.json")));
-global.VERSION = global.PACKAGE.version;
-
-global.extern = global.path.join(__dirname, "external");
-
-var parseCLI = require("./base/cli/cliParser.js");
-var getExt = require("./base/util/getExt.js");
-var getTips = require("./base/util/getTips.js");
-var Flash = require("./base/util/flash.js");
-global.copyRecursiveSync = require("./base/util/copyRecursive.js");
-global.copyDirSync = require("./base/util/copyDirSync.js");
-
-var CURRENT = global.process.cwd();
-var TARGET = require("./base/compiler/target.js");
-
-
-global.PLATFORM = os.platform();
-global.ARCH = os.arch();
-
-global.COMPILER = {};
-global.NERD_PATH = __dirname;
-var DEFAULT_COMPILER = "native";
-
-global.CLI = parseCLI(process.argv);
-
-if(global.CLI.error)
-{
-  console.log(global.CLI.msg);
-  return 1;
+function doerror(...a){
+    console.error(...a)
+    exit(1);
 }
-require("./lib/env.js");
-global.parseCode = require("./lib/parser.js");
-global.verifyFlow = require("./lib/verify.js");
 
+class NerdLangParser extends acorn.Parser {
 
-global.CONFIGPATH = global.os.homedir() + path.sep + ".nerd";
-global.CONFIGFILE = global.CONFIGPATH + "/" + "nerd.json";
-global.CONFIG = {};
+    readToken(code){
+        if(code == 123){
+            if(this.pos == this.input.length-1)
+                return this.raise(this.pos, "Unterminated left brace");
 
+            else if(this.input.charCodeAt(this.pos + 1) == 123){ // {{
+                var start = this.pos,
+                    end = this.input.indexOf("}}", this.pos += 2);
+                
+                if (end === -1) 
+                    return this.raise(this.pos - 2, "Unterminated native block");
 
-var ACTION = "build";
-if(global.CLI.cli["--help"] || global.CLI.cli["-h"]) ACTION = "help";
-else if(global.CLI.cli["--example"] || global.CLI.cli["--examples"]) ACTION = "example";
-else if(global.CLI.cli["--version"] || global.CLI.cli["-v"]) ACTION = "version";
-else if(global.CLI.cli["--project"]) ACTION = "showproject";
-else if(global.CLI.cli["--clean"] || global.CLI.cli["--purge"]) ACTION = "clean";
-else if(global.CLI.cli["--setauthor"] || global.CLI.cli["--setid"] || global.CLI.cli["--setkey"] || global.CLI.cli["--sethash"] || global.CLI.cli["--setsdk"] || global.CLI.cli["--setndk"] || global.CLI.cli["--setwin_inc_ucrt"] || global.CLI.cli["--setwin_lib_ucrt"] || global.CLI.cli["--setwin_lib_um"] || global.CLI.cli["--setapi"] || global.CLI.cli["--setport"] || global.CLI.cli["--setxcode"]) ACTION = "setconfig";
-else if(global.CLI.cli["--config"]) ACTION = "showconfig";
-else if(global.CLI.cli["--reinit"]) ACTION = "reinitconfig";
-
-
-var getExampleFiles = function(dir, list)
-{
-	if(!list)
-	{
-		list = [];
-	}
-
-    var files = fs.readdirSync(dir);
-    for (var i in files)
-    {
-        var name = dir + path.sep + files[i];
-        if (fs.statSync(name).isDirectory())
-        {
-            getExampleFiles(name, list);
+                this.pos = end + 2;
+                return this.finishToken(nativeL)
+            }
         }
-        else
-        {
-            list.push(name);
+        return super.readToken(code);
+    }
+
+    parseExprAtom(refDestructuringErrors, forInit){
+        if(this.type == nativeL){
+            var node = this.startNode();
+            node.content = this.input.substring(node.start+2, this.pos-2);
+            this.next()
+            return this.finishNode(node, "NativeBlock");
+        }
+        
+        return super.parseExprAtom(refDestructuringErrors, forInit)
+    }
+
+}
+
+function getAST(code){
+    return NerdLangParser.parse(code, {ecmaVersion: 6, allowReturnOutsideFunction: true})
+}
+
+function genArray(arr, tab, ctx){
+    var ret = []
+    for (let i = 0; i < arr.length; i++)
+        ret.push(generateCode(arr[i], tab, ctx))
+    return ret
+}
+
+function tostr(s){
+    return '"' + s.replaceAll('"','\\"').replaceAll('\n','\\n').replaceAll('\\','\\\\') + '"'
+}
+
+function path_walker(curpath, target){
+    var cur;
+    if(curpath == ".")
+        cur = []
+    else
+        cur = curpath.split("/")
+
+    var p = target.split("/")
+    for (let i = 0; i < p.length; i++) {
+        switch(p[i]){
+            case ".": break;
+            case "..":
+                cur.pop();
+                break;
+            default:
+                cur.push(p[i])
         }
     }
-    return list;
+    return cur.join("/")
 }
 
-var copyExample = function()
-{
-  var folder = ["c"];
-  var list = getExampleFiles(path.join(__dirname, "example"));
-  for(var l in list)
-  {
-    var name = list[l].split(path.sep);
-    if(name[name.length - 2] && folder.indexOf(name[name.length - 2]) > -1)
-    {
-      try
-      {
-        fs.mkdirSync(name[name.length - 2]);
-      }catch(e){}
-      name = name[name.length - 2] + "/" + name[name.length - 1];
+// console.log(ctx.stack) inside the compiler
+function generateCode(AST, tab, ctx){
+    ctx.stack = ctx.stack || []
+    ctx.removestack = ctx.removestack || 0
+    ctx.stack.unshift(AST)
+    var ret = _generateCode(AST,tab,ctx);
+    ctx.stack.shift()
+    if(ctx.removestack > 0){
+        ctx.removestack--
+        return ""
     }
-    else name = name[name.length - 1];
-    var content = fs.readFileSync(list[l]);
-    fs.writeFileSync(name, content);
-    console.log("[+] Copy of " + name + " done");
-  }
+    return ret
 }
 
-var Init = function()
-{
-    if(!fs.existsSync(CONFIGPATH)) fs.mkdirSync(CONFIGPATH);
-  try
-  {
-      var writeConfig = false;
-      var config = "";
-      config = fs.readFileSync(CONFIGFILE);
-      config = JSON.parse(config);
-      if(!config.version)
-      {
-        config.version = VERSION;
-        config.port = 443;
-        fs.writeFileSync(CONFIGFILE, JSON.stringify(config));
-      }
-  }
-  catch (e)
-  {
-    writeConfig = true;
-  }
+function _generateCode(AST, tab, ctx){
+    if(!AST) return ""
+    var ret = ""
+    switch(String(AST.type)){
+        case 'Program':
+            ctx.scope = 0;
+        case 'BlockStatement':
+            const ib = ctx.ignorebracket
+            const nnl = ctx.nonl
+            ctx.ignorebracket = ctx.nonl = ctx.vardecl_as_expr = false
+            ret = ib ? '' : '{\n'
+            ret += genArray(AST.body, "\t"+tab, ctx).join("")
+            ret += ib ? '' : tab+'}' + (nnl ? '' : '\n')
+            return ret
 
-  if(!config || writeConfig)
-  {
-    var defaultConfig = { author: os.userInfo().username, id: "", key:"", hash:"SHA256", api:"api.nerdlang.com", port:443, version: VERSION, sdk: "", ndk: "", win_inc_ucrt: "", win_lib_ucrt: "", win_lib_um: "", xcode: "/Applications/Xcode.app"};
-    fs.writeFileSync(CONFIGFILE, JSON.stringify(defaultConfig));
-  }
-}
+        case 'ExpressionStatement':
+            const nocomma = ctx.nocomma
+            const nonl    = ctx.nonl
+            ctx.nocomma = ctx.nonl = false;
+            ret = tab + generateCode(AST.expression, tab, ctx)
+            ret += (AST.expression.type != 'NativeBlock' ?
+                (ctx.nocomma || nocomma ? '' : ';') +
+                (ctx.nonl || nonl ? '' : '\n') : '')
+            ctx.nocomma = ctx.nonl = false;
+            return ret
 
-var readConfig = function()
-{
-  try
-  {
-    var tmp = fs.readFileSync(CONFIGFILE);
-    CONFIG = JSON.parse(tmp);
-  }
-  catch (e)
-  {
-    Init();
-    readConfig();
-  }
-}
+        case 'CallExpression':
+            var nthis = {type: 'Identifier', name: '__NERD_THIS'}
+            if(AST.callee.type == "MemberExpression"){
+                var prop = generateCode(AST.callee.property, tab, ctx);
+                switch(prop){
+                    case 'apply':
+                        if(AST.arguments.length > 0)
+                            nthis = AST.arguments.shift();
+                        AST.callee = AST.callee.object;
+                        break;
+                    default:
+                        nthis = AST.callee.object;
+                        break;
+                }
+            }
 
-var showConfig = function(str)
-{
-  console.log();
-  if(str) console.log(str);
-  else console.log("[*] Current config :");
-  console.log("author   : " + CONFIG.author);
-  console.log("id   : " + CONFIG.id);
-  console.log("key  : " + CONFIG.key);
-  console.log("hash : " + CONFIG.hash);
-  console.log("api : " + CONFIG.api);
-  console.log("port : " + CONFIG.port);
-  console.log("version : " + VERSION);
-  console.log("Android SDK : " + CONFIG.sdk);
-  console.log("Android NDK : " + CONFIG.ndk);
-  console.log("Windows Include UCRT : " + CONFIG.win_inc_ucrt);
-  console.log("Android Lib UCRT : " + CONFIG.win_lib_ucrt);
-  console.log("Android Lib UM : " + CONFIG.win_lib_um);
-  console.log("iOS xCode : " + CONFIG.xcode);
-  console.log();
-}
+            var callee = generateCode(AST.callee, tab, ctx);
+            var arglen = AST.arguments.length,
+                arg0   = AST.arguments[0];
 
-var setConfig = function()
-{
-  try
-  {
-    if(global.CLI.cli["--setauthor"]) CONFIG.author = global.CLI.cli["--setauthor"].argument;
-    if(global.CLI.cli["--setid"]) CONFIG.id = global.CLI.cli["--setid"].argument;
-    if(global.CLI.cli["--setkey"]) CONFIG.key = global.CLI.cli["--setkey"].argument;
-    if(global.CLI.cli["--setapi"]) CONFIG.api = global.CLI.cli["--setapi"].argument;
-    if(global.CLI.cli["--setport"]) CONFIG.port = parseInt(global.CLI.cli["--setport"].argument);
-    //if(global.CLI.cli["--setsdk"]) CONFIG.sdk = global.CLI.cli["--setsdk"].argument.replace(/\\/g, "\\\\").replace(/:/g, "\\\:"); // for android 
-    //if(global.CLI.cli["--setndk"]) CONFIG.ndk = global.CLI.cli["--setndk"].argument.replace(/\\/g, "\\\\").replace(/:/g, "\\\:"); // for android
-    if(global.CLI.cli["--setwin_ucrt"]) CONFIG.win_ucrt = global.CLI.cli["--setwin_ucrt"].argument;
-    if(global.CLI.cli["--setwin_inc_ucrt"]) CONFIG.win_inc_ucrt = global.CLI.cli["--setwin_inc_ucrt"].argument;
-    if(global.CLI.cli["--setwin_lib_ucrt"]) CONFIG.win_lib_ucrt = global.CLI.cli["--setwin_lib_ucrt"].argument;
-    if(global.CLI.cli["--setwin_lib_um"]) CONFIG.win_lib_um = global.CLI.cli["--setwin_lib_um"].argument;
-    if(global.CLI.cli["--setxcode"]) CONFIG.xcode = global.CLI.cli["--setxcode"].argument;
+            if(callee == "include" && arglen > 0 && arg0.type == 'Literal'
+                && typeof(arg0.value) == 'string' ){
 
-	/*
-    if(isNaN(CONFIG.port))
-    {
-      console.dir("[!] This port is not valid : '" + global.CLI.cli["--setport"].argument +"', please specify a number.");
-      return;
-    }
-	*/
+                var str = arg0.value
+                ctx.include = ctx.include || []
+                ctx.include.push(str[0] == '<' ? str :
+                    '<'+path.dirname(ctx.module_path)+'/'+str+'>')
+                ctx.removestack = 2; // Removes the statement
+                return ''
+            }
 
-    if(global.CLI.cli["--sethash"])
-    {
-      var hash = global.CLI.cli["--sethash"].argument.toUpperCase();
-      if(validHash.indexOf(hash) < 0)
-      {
-        console.dir("[!] Hash is not valid and won't be saved. Valid hash are : MD5, SHA256 ans SHA512");
-      }
-      else
-      {
-          CONFIG.hash = hash;
-      }
-    }
 
-    fs.writeFileSync(CONFIGFILE, JSON.stringify(CONFIG));
-  }
-  catch (e)
-  {
-    console.log(e);
-  }
-}
+            if(callee == "require"){
+                if(arglen > 0 && arg0.type == 'Literal'
+                    && typeof(arg0.value) == 'string'){
 
-var reinitConfig = function()
-{
-  try
-  {
-    var defaultConfig = { author: os.userInfo().username, id: "", key:"", hash:"SHA256", api:"api.nerdlang.com", "port":443, sdk: "", ndk: "", win_inc_ucrt: "", win_lib_ucrt: "", win_lib_um: "", xcode: "/Applications/Xcode.app"};
-    fs.writeFileSync(CONFIGFILE, JSON.stringify(defaultConfig));
-    readConfig();
-    showConfig("[*] Config reinitialized :");
-  } catch (e)
-  {
-      console.log(e);
-  }
-}
+                    return ctx.process_require(arg0.value)
+                    
+                    //if(arg0.value.indexOf(".") != -1) // file instead of package
+                    //    return callee + "(module, 0x" +
+                    //        crc32(path_walker(path.dirname(ctx.modulepath), arg0.value)).toString(16).toUpperCase() +
+                    //        " /* "+ arg0.value +" */)"
+                    //else
+                    //    return callee + "(module, 0x" +
+                    //        crc32(arg0.value).toString(16).toUpperCase() +
+                    //        " /* "+ arg0.value +" */)"
+                }else{
+                    throw "TODO: Only static requires are allowed!"
+                }
+            }
 
-var showProject = function()
-{
-  var project = "project.json";
-  if(global.CLI.stack && global.CLI.stack.length > 0)
-  {
-    project = global.CLI.stack[global.CLI.stack.length - 1];
-  }
-  try
-  {
-    var pConf = fs.readFileSync(project);
-    var jConf = JSON.parse(pConf);
-    printProject(jConf);
-  }
-  catch (e)
-  {
-    console.dir("[!] Error : " + e.message);
-  }
+            if(['arguments','length_of','type_of'].indexOf(callee) == -1)
+                AST.arguments.unshift(nthis)
 
-}
+            return callee + "(" + genArray(AST.arguments, tab, ctx).join(", ") + ")"
 
-var Clean = function(purge)
-{
-  var project = "project.json";
-  if(global.CLI.stack && global.CLI.stack.length > 0)
-  {
-    project = global.CLI.stack[global.CLI.stack.length - 1];
-  }
-  try
-  {
-    var pConf = fs.readFileSync(project);
-    var jConf = JSON.parse(pConf);
-    if(jConf.main)
-    {
-      if( (global.CLI.cli["--purge"] || purge) && jConf.out)
-      {
-        var outFile = jConf.out;
-        if(jConf.out[0] != path.sep)
-        {
-          outFile = path.join(path.dirname(project), jConf.out);
-        }
-        try{fs.unlinkSync(outFile);}catch(e){}
-      }
-    }
-    try
-	{
-		fs.unlinkSync(project);
-	}catch(e){}
-  }
-  catch (e)
-  {
-    console.dir("[!] Error : " + e.message);
-  }
-}
+        case 'MemberExpression':
+            return generateCode(AST.object, tab, ctx) + "[" +
+                    (AST.computed ?
+                        generateCode(AST.property, tab, ctx) :
+                        tostr(AST.property.name))+"]"
 
-var printProject = function(obj)
-{
-  console.log();
-  console.log("[*] Project configuration :\n");
-  console.log("Main file : " + obj.main);
-  console.log("Output    : " + obj.out);
-  console.log("Target    : " + obj.target);
-  console.log("Preset    : " + obj.preset);
-  console.log();
-}
+        case 'Identifier':
+            if(ctx.stack[1].type != 'MemberExpression'){
+                switch(AST.name){
+                    case 'arguments':
+                        return 'arguments()'
+                }
+            }
+            return AST.name
 
-var Build = function(prepare)
-{ 
-	global.DEBUG = false;
-	if(global.CLI.cli["--debug"])
-	{
-		global.DEBUG = true;
-	}
-  if(global.CLI.cli["--build"]) DEFAULT_COMPILER = global.CLI.cli["--build"].argument;
-  else if(global.CLI.cli["-b"]) DEFAULT_COMPILER = global.CLI.cli["-b"].argument;
-  
-  COMPILER = require(path.join(__dirname, "compiler", DEFAULT_COMPILER, "compiler.js"));
-  
-  if(global.CLI.cli["--compiler"] && global.CLI.cli["--compiler"].argument) COMPILER.COMPILER = global.CLI.cli["--compiler"].argument;
-  else if(global.CLI.cli["-c"] && global.CLI.cli["-c"].argument) COMPILER.COMPILER = global.CLI.cli["-c"].argument;
+        case 'AssignmentExpression':
+        case 'LogicalExpression':
+        case 'BinaryExpression':
+            var bf = '', aft ='';
+            switch(AST.operator){
+                // Simple operators, are the same in js and cpp
+                case '=': bf='('; aft=', '+generateCode(AST.left, tab, ctx)+')'
+                case '+': case '-':
+                case '*': case '/': case '%':
+                case '<': case '<=':
+                case '>': case '>=':
+                case '==': case '!=':
+                case '&&': case '||':
+                case '+=': case '-=':
+                case '*=': case '/=': 
+                    return bf+generateCode(AST.left, tab, ctx) +
+                           " " + AST.operator + " " +
+                           generateCode(AST.right, tab, ctx)+aft
 
-  var preset;
-  if(global.CLI.cli["--preset"] && global.CLI.cli["--preset"].argument) preset = global.CLI.cli["--preset"].argument;
+                case '===':
+                    return "__NERD_EQUAL_VALUE_AND_TYPE(" +
+                           generateCode(AST.left, tab, ctx) + ', ' +
+                           generateCode(AST.right, tab, ctx) + ')';
 
-  var env;
-  if(global.CLI.cli["--env"] && global.CLI.cli["--env"].argument) env = global.CLI.cli["--env"].argument;
+                case '!==':
+                    return "__NERD_NOT_EQUAL_VALUE_AND_TYPE(" +
+                           generateCode(AST.left, tab, ctx) + ', ' +
+                           generateCode(AST.right, tab, ctx) + ')';
+                
+                case 'instanceof':
+                    return "__NERD_INSTANCEOF(" +
+                           generateCode(AST.left, tab, ctx) + ', ' +
+                           generateCode(AST.right, tab, ctx) + ')';
+                
+                default:
+                    console.log("Unknown operator:", AST.operator, AST)
+                    return ''
+            }
+        
+        case 'UnaryExpression':
+            switch(AST.operator){
+                // Simple operators, are the same in js and cpp
+                case '!': case '-':
+                case '+':
+                    return AST.operator + generateCode(AST.argument, tab, ctx)
+                case 'typeof':
+                    return "type_of(" + generateCode(AST.argument, tab, ctx) + ")"
+                case 'delete':
+                    switch(AST.argument.type){
+                        case 'Identifier':
+                            return "delete "+AST.argument.name
+                        case 'MemberExpression':
+                            if(AST.argument.property.type == 'Identifier')
+                                ret = tostr(AST.argument.property.name)
+                            else
+                                ret = generateCode(AST.argument.property, tab, ctx)
+                            
+                            return "__NERD_delete("+
+                                generateCode(AST.argument.object, tab, ctx)+", "+ret+')';
+                        default:
+                            console.log('Unknown delete argument:', AST.argument)
+                    }
+                default:
+                    console.log("Unknown unary operator:", AST.operator, AST)
+                    return ''
+            }
+        
+        case 'VariableDeclaration':
+            const vdec = ctx.vardecl_as_expr
+        
+            ctx.vardecl_as_expr = false
+            return (vdec ? '' : tab) + "var " +
+                genArray(AST.declarations, tab, ctx).join(vdec?", var ":"; var ") +
+                (vdec ? '' : ";\n");
+        
+        case 'VariableDeclarator':
+            var idstr = generateCode(AST.id, tab, ctx)
+            if(!AST.init) return idstr
 
-  if(!preset) preset = "speed";
-  COMPILER.preset = preset;
-  
-  if(!env) env = "std";
+            if(AST.init.type == 'FunctionExpression')
+                ctx.funcvar = idstr
 
-	var target;
-  if(global.CLI.cli["--target"] && global.CLI.cli["--target"].argument) target = global.CLI.cli["--target"].argument;
-	COMPILER.TARGET = target;
+            ret = idstr + " = " + generateCode(AST.init, tab, ctx)
 
-	var spec;
-  if(global.CLI.cli["--spec"] && global.CLI.cli["--spec"].argument) spec = global.CLI.cli["--spec"].argument;
-	COMPILER.SPEC = spec;
+            ctx.funcvar = false
+            return ret;
+        
+        case 'FunctionDeclaration':
+            ctx.funcvar = generateCode(AST.id, tab, ctx)
+            ret = tab + "var " + ctx.funcvar + " = "
 
-	var _tmp;
-	if(global.CLI.cli["--tmp"] && global.CLI.cli["--tmp"].argument)
-		_tmp = path.resolve(global.CLI.cli["--tmp"].argument);
-	else {
-		var _current = process.cwd();
-		var _npath = path.join(_current, ".nerd");
-		_tmp = path.join(_npath, Math.random().toString(36).substr(2, 5));
-	}
-	COMPILER.TMP_FOLDER = _tmp;
+        case 'FunctionExpression':
+            if(ctx.funcvar){
+                var funcvar = ctx.funcvar;
+                ctx.funcvar = false;
+                ret += '__NERD_Create_Var_Scoped_Copy_Anon_With_Ref(' +
+                    funcvar + ","
+            }else{
+                ret = '__NERD_Create_Var_Scoped_Copy_Anon('
+            }
+            ctx.ignorebracket = true
+            ret += "{\n"
+            var ntab = tab + "\t"
 
-  if(!global.CLI.stack || global.CLI.stack.length < 1)
-  {
-    console.error("[!] Missing file to compile or project.json path, 'nerd --help' if you need help");
-    return;
-  }
-  else
-  {
-	var QUIET = false;
-    var _in = global.CLI.stack[0];
-	var main;
-    COMPILER.IN = _in;
-    fs.readFile(_in, function(err, fileData)
-    {
-      if(err)
-      {
-        console.error("[!] Error : " + err.message);
-        return;
-      }
-      else
-      {
+            if(AST.params.length > 0){
+                ret += ntab + "var " + genArray(AST.params, ntab, ctx).join("; var ") + ";\n"
+                for (let i = 0; i < AST.params.length; i++) {
+                    const e = AST.params[i];
+                    ret += ntab + "if(__NERD_VARLENGTH > "+i+") " +
+                        generateCode(e.type == 'AssignmentPattern' ? e.left : e, ntab, ctx) +
+                        " = __NERD_VARARGS["+i+"];\n"
+                }
+            }
 
-        Check(_in);
-		
-        var ext = "ng";
-        var _Ext = _in.split(".");
-        if(_Ext.length > 1) ext = _Ext[_Ext.length - 1];
+            ret += generateCode(AST.body, tab, ctx) +
+                ntab + 'return NerdCore::Global::null;\n'+tab+'})'
 
-		/*** CREATE COMPIL ENV ***/
-		var _current = process.cwd();
-		var _npath = path.join(_current, ".nerd");
-		try { fs.mkdirSync(_npath); } catch(e){};
-		if(COMPILER.ENV.init) COMPILER.ENV.init(COMPILER.TMP_FOLDER);
-		else try { fs.mkdirSync(COMPILER.TMP_FOLDER); } catch(e){};
+            if(AST.type == "FunctionDeclaration")
+                ret += ";\n"
 
-		/*** PREPARE SRC ***/
-		var _libOut = COMPILER.TMP_FOLDER;
-		if(COMPILER.ENV.prepare)
-		{
-			var _tmpLibOut = COMPILER.ENV.prepare(COMPILER.TMP_FOLDER);
-			if(_tmpLibOut) _libOut = _tmpLibOut;
-		}
+            return ret
 
-		COMPILER.Prepare(_libOut);
+        case 'ReturnStatement':
+            return tab + "return " + generateCode(AST.argument, tab, ctx) + ";\n"
+        
+        case 'AssignmentPattern':
+            return generateCode(AST.left, tab, ctx) + " = "+
+                   generateCode(AST.right, tab, ctx)
+        
+        case 'ArrayExpression':
+            return 'var(new NerdCore::Class::Array(' + genArray(AST.elements, tab, ctx).join(", ") + '))'
+        
+        case 'ObjectExpression':
+            ntab = tab + "\t";
+            return 'var(new NerdCore::Class::Object(' + (
+                AST.properties.length == 0 ? '))' :
+                "{\n" + ntab +
+                genArray(AST.properties, tab, ctx).join(",\n" + ntab) +
+                '\n' + tab +'}))')
+        
+        case 'Property':
+            var key = generateCode(AST.key, tab, ctx);
+            if(AST.key.type == "Identifier") key = tostr(key)
+            return '{' + key + ', ' + generateCode(AST.value, '\t'+tab, ctx) + '}'
+        
+        case 'IfStatement':
+            const notab = ctx.notab
+            var conblock = AST.consequent.type == "BlockStatement"
+            var altblock
+            ctx.notab = false
+            ctx.nonl = true
+            var body = generateCode(AST.consequent, (conblock ? tab : tab+'\t'), ctx)
+            ctx.nonl = false
+            var alternate = '\n';
+            if(AST.alternate){
+                altblock = AST.alternate.type == "BlockStatement"
+                ctx.notab = AST.alternate.type == 'IfStatement'
+                alternate = (altblock || ctx.notab ?
+                        (conblock ? ' else ' : tab+'else ') :
+                        tab+'else\n') +
+                    generateCode(AST.alternate, (altblock || ctx.notab ? tab : '\t'+tab), ctx)
+            }
+            ctx.notab = false
+            return (notab ? '' : tab) +
+                'if(' + generateCode(AST.test, tab, ctx) + ')' + (conblock ? '' : '\n')
+                + body + (conblock ? '' : '\n') + alternate
+        
+        case 'ForStatement':
+            ctx.vardecl_as_expr = true
+            ret = tab + 'for(' + generateCode(AST.init, tab, ctx) + "; "
+            ctx.vardecl_as_expr = true
+            ret += generateCode(AST.test, tab, ctx) + "; "
+            ctx.vardecl_as_expr = true
+            ret += generateCode(AST.update, tab, ctx) + ")"
+            ctx.vardecl_as_expr = false
+            conblock = AST.body.type == "BlockStatement"
+            return ret + (conblock?'':'\n') +
+                generateCode(AST.body, (conblock ? tab : '\t'+tab), ctx)
+        
+        case 'UpdateExpression':
+            return generateCode(AST.argument, tab, ctx) + AST.operator
+        
 
-        var fProject = false;
-        var prjectConf = {};
-        if(path.basename(_in) == "project.json")
-        {
-          try
-          {
-              projectConf = JSON.parse(fileData);
-              fProject = true;
-              single = false;
-          }
-          catch (e)
-          {
-            console.error("[!] Error with project.json : " + e.message);
-            return;
-          }
-        }
+        case 'WhileStatement':
+            ctx.nonl = true
+            ret = generateCode(AST.body, tab, ctx)
+            ctx.nonl = false
+            return tab + 'while(' + generateCode(AST.test, tab, ctx) + ")" + ret + '\n'
+        
+        case 'DoWhileStatement':
+            ctx.nonl = true
+            ret = generateCode(AST.body, tab, ctx)
+            ctx.nonl = false
+            return tab + 'do' + (ret[0] != "{" ? ' ' : '') + ret +
+                    'while(' + generateCode(AST.test, tab, ctx) + ");\n"
 
-		/*** GET FILES NAME ***/
-		var _binoutput = "";
-		if(fProject)
-		{
-			_binoutput = projectConf.out;
-		}
-		else _binoutput = path.basename(_in).slice(0, path.basename(_in).length - path.extname(_in).length);
-		
-		if(global.CLI.cli["-o"])
-		{
-			_binoutput = global.CLI.cli["-o"].argument;
-		}
-		else if(global.CLI.cli["--out"])
-		{
-			_binoutput = global.CLI.cli["--out"].argument;
-		}
-		
-		_binoutput = path.join(process.cwd(), _binoutput);
-		
-		var _cout = path.join(COMPILER.TMP_FOLDER, path.basename(_in).slice(0, path.basename(_in).length - path.extname(_in).length) + ".cpp");
+        case 'ConditionalExpression':
+            return generateCode(AST.test, tab, ctx) + ' ? ' +
+                   generateCode(AST.consequent, tab, ctx) + ' : ' +
+                   generateCode(AST.alternate, tab, ctx);
 
-		_binoutput = COMPILER.Out(_binoutput);
-	
-		var projTo = "";
-		var tmp = _in.split("/");
+        case 'ThrowStatement':
+            return tab + "throw " + generateCode(AST.argument, tab, ctx) + ";"
 
-		projTo = _binoutput;
-	
-		main = _in.split(path.sep);
-		main = main[main.length - 1];
+        case 'ForInStatement':
+            if(AST.body.type != 'BlockStatement')
+                AST.body = {type: 'BlockStatement', body: [AST.body]}
+            AST.body.body.unshift({
+                type: 'NativeBlock',
+                content: '\t'+tab + generateCode(AST.left, tab, ctx)+' = '+
+                    '__NERD_VARARGS[0];'
+            })
+            AST.body.body.push({type: 'ReturnStatement', argument:
+                {type: 'Identifier', name: 'NerdCore::Global::null'}})
 
-		var tips = "";
+            ret = tab+'__NERD_FORIN('+generateCode(AST.right, tab, ctx)+', '
+            ctx.nonl = true;
+            return ret+generateCode(AST.body, tab, ctx)+');\n'
 
-		if(!QUIET) console.log("[*] Generating source file");
-	
-		var _code = fs.readFileSync(path.resolve(_in)).toString();
-
-		global.array_of_code = _code.split(os.EOL);
-		_code = COMPILER.Parse(_code, _in);
+        case 'BreakStatement':
+            return tab + 'break;\n'
     
-		if(COMPILER.ENV.write)
-		{
-			COMPILER.ENV.write(COMPILER.MAIN, _cout);
-		}
-		else
-		{
-			if((!global.CLI.cli["--profile"]) || global.CLI.cli["--profile"].argument != "use")
-			{
-				fs.writeFileSync(_cout, COMPILER.MAIN);
-			}
-		}
+        case 'ContinueStatement':
+            return tab + 'continue;\n'
 
-		if(global.CLI.cli["--generate"])
-		{
-			if(!QUIET) console.log("[*] Source generated in " + path.dirname(_cout));
-			process.exit(0);
-		}
+        case 'EmptyStatement': return ''
+        
+        case 'NewExpression':
+            callee = generateCode(AST.callee, tab, ctx);
+            switch(callee){
+                case 'TypeError':
+                    return 'var(var("TypeError: ")+'+genArray(AST.arguments, tab, ctx).join("+")+')'
+                default:
+                    return "__NERD_NEW("+callee+")("+
+                        genArray(AST.arguments, tab, ctx).join(", ")+")"
+            }
 
-		if(!QUIET) console.log("[*] Compiling with preset: " + COMPILER.preset);
-		try 
-		{
-			COMPILER.Compile(COMPILER.TMP_FOLDER, _cout);
-		}
-		catch(e)
-		{
-			console.log(e);
-			console.log("[!] Compilation error");
-			process.exit(1);
+        case 'NativeBlock':
+            return AST.content + '\n'
+
+        case 'ThisExpression': return '__NERD_THIS'
+
+        case 'Literal': // String, Number, etc...
+            switch(typeof(AST.value)){
+                case 'string':
+                    return tostr(AST.value)
+                case 'boolean':
+                case 'number':
+                    return AST.raw
+                case 'object':
+                    if(AST.value == null)
+                        return "null"
+                default:
+                    console.log("Unknown Literal!", typeof(AST.value), AST)
+                    return ''
+            }
+
+        default:
+            console.log("Unknown type:",AST)
+            return ''
     }
-    
-    if(COMPILER.ENV.post) COMPILER.ENV.post();
+}
 
-    try 
-		{
-			fs.chmodSync(_binoutput, "755");
-		}
-		catch(e){}
-		
-		if(COMPILER.Package) COMPILER.Package();
-		
-		process.chdir(NERD_PATH);
-		
-		if(!global.CLI.cli["--conserve"])
-		{
-			var _current = process.cwd();
-			process.chdir(_current);
-			fs.rmSync(COMPILER.TMP_FOLDER, {recursive: true});
-		}
-		
-		var verb = false;
-		if(global.CLI.cli["--verbose"]) verb = true;
-		
-    var bin;
-    try 
-		{
-      bin = fs.statSync(_binoutput);
-		}
-    catch(e){}
-    
-    if(COMPILER.ENV.clean && typeof(COMPILER.ENV.clean) == "function")
-    {
-      COMPILER.ENV.clean();
+var module_table = []
+
+function generateFile(AST, fout, outroot, options){
+
+    options = options || {}
+    options.ignorebracket = true
+    options.include = options.include || []
+
+    var gencode = generateCode(AST, '', options)
+
+    var cpp = 
+           '#define __MODULE_NAME 0x'+options.module_name+'\n'
+    cpp += '#include <nerd_exports.hpp>\n'
+    cpp += 'using namespace NerdCore::Global;\n\n'
+    options.include.forEach(i => 
+        cpp += '#include '+i+'\n')
+    cpp += '\nvar __MODULE_'+options.module_name+'_main() {\n'
+    cpp += '\t__NERD_INIT_MODULE('+tostr(options.module_path)+');\n'
+    cpp += gencode
+    cpp += '\treturn module["exports"];\n'
+    cpp += '}'
+
+    return cpp
+}
+
+var crc32=function(r){for(var a,o=[],c=0;c<256;c++){a=c;for(var f=0;f<8;f++)a=1&a?3988292384^a>>>1:a>>>1;o[c]=a}for(var n=-1,t=0;t<r.length;t++)n=n>>>8^o[255&(n^r.charCodeAt(t))];return(-1^n)>>>0};
+var packages = {}
+var processed_modules = {}
+
+function _processFile(fin, inroot, outroot, options){
+    console.log("Processing "+path.relative(inroot, fin))
+    options = options || {}
+
+    options.module_path = options.module_path || path.relative(inroot, fin)
+    options.module_name = options.module_name || crc32(options.module_path).toString(16).toUpperCase()
+
+    module_table.push({ path: options.module_path, name: options.module_name })
+
+    var reqs = []
+
+    options.process_require = function(name){
+        var p = path_walker(path.dirname(fin), name)
+        if(packages[name] || fs.existsSync(p)){
+            reqs.push([name, p])
+            return "require(module, 0x"+
+                crc32(path.relative(inroot, p)).toString(16).toUpperCase()+" /* "+name+" */)"
+        }else
+            throw "Could not find require: "+name
     }
+    var fout = outroot+'/'+options.module_path
+    var out
+    try{
+        out = generateFile( getAST( fs.readFileSync(fin) ), fout, outroot, options)
+    }catch(e){
+        throw options.module_path+': '+e
+    }
+    fs.mkdirSync( path.dirname(fout), {recursive: true} )
+    fs.writeFileSync(fout + ".cpp", out, {})
+    src_array.push(tostr(path.relative(outroot, fout+".cpp")))
 
-		if(verb && bin)
-		{
-			console.log("[+] Compilation done\n");
-			console.log("[*] Informations :\n");
-			var size = "Size      : ";
-			if(bin.size < 1000) size += bin.size + " o";
-			else if(bin.size < 1000000) size += (bin.size / 1000) + " ko";
-			else size += (bin.size / 1000000) + " mo";
-			console.log(size);
-			console.log("Main file : " + main);
-			console.log("Output    : " + projTo);
-			console.log("Preset    : " + preset);
-		}
-		
-		if(global.CLI.cli["--tips"] && tips && tips.length > 0) console.log("\n" + tips + "\n");
-
-		if(global.CLI.cli["--flash"]) Flash(projTo, global.CLI.cli["--flash"].argument, target, verb);
-		
-		if(global.CLI.cli["--run"])
-		{
-			console.log();
-      console.log("[*] Executing " + _binoutput);
-      if(!COMPILER.ENV.run)
-      {
-        var _binexec = child_process.spawnSync(_binoutput, 
-        [],
-        {
-		  detached: false,
-          stdio: [process.stdin, process.stdout, process.stderr],
-          cwd: process.cwd(),
-          env: process.env
-        });
-        if(_binexec.error)
-        {
-          console.log(_binexec.error);
+    reqs.forEach(v=>{
+        if(processed_modules[v]) return;
+        processed_modules[v] = true
+        if(packages[v[0]]){
+            _processPackage(outroot, packages[v[0]])
+        }else{
+            _processFile(v[1], inroot, outroot)
         }
-      }
-      else COMPILER.ENV.run();
-		}	
-		  if(!global.CLI.cli["--prepare"])
-          {
-			  var _current = path.dirname(path.resolve(process.argv[1]));
-			  var _native = path.join(_current, "core", "nativejs");
-			  var _to = path.resolve(projTo);
-			  var _fullPathCompile = path.resolve(main);
-		  }
-          else
-          {
-	           var pObj = { main: main, out:projTo, target:target, preset:preset };
-	            printProject(pObj);
-          }
-      }
-    });
-  }
+    })
 }
 
-var showVersion = function()
-{
-  console.log("Nerd v" + VERSION);
+var pkgcmake = []
+var cmakecached = []
+var cmakecmdadd = []
+var src_array = []
+
+function _processPackage(outroot, options){
+
+    if(options.nerd)
+        if(options.nerd.lib){
+            if(options.nerd.lib.cmake)
+                pkgcmake.push(options.nerd.lib.cmake.join("\n"))
+            if(options.nerd.lib.cmake_cached)
+                cmakecached.push(options.nerd.lib.cmake_cached)
+        }
+    options.module_name = crc32(options.name).toString(16).toUpperCase()
+    _processFile(options.root+'/'+options.pkgdir+'/'+options.main, options.root, outroot, options)
 }
 
-var Check = function(file)
-{
-  if(file.split(".").pop() != "js") return;
+function registerPackages(pkgsdir, ext, root){
+    if(!fs.existsSync(pkgsdir)) return;
 
-  if(global.CLI.cli["--check"]) process.exit();
+    fs.readdirSync(pkgsdir, {withFileTypes: true}).forEach(pkg => {
+        if(pkg.isDirectory()){
+            var pkgdir = pkgsdir+'/'+pkg.name
+            var json = {};
+            if(fs.existsSync(pkgdir + "/package.json"))
+                json = JSON.parse(fs.readFileSync(pkgdir + "/package.json"));
+            // TODO: To nerd
+            json.main = json.main || "index." + ext;
+            json.name = json.name || path.basename(pkgdir);
+            if(!fs.existsSync(pkgdir + '/' + json.main)){
+                console.log("Could not find main file of package "+pkg.name+'!');
+            }
+            json.root = root
+            json.pkgsdir = pkgsdir
+            json.pkgdir = pkgdir
+            json.ext = ext;
+            packages[json.name] = json
+        }
+    })
 }
 
-var Help = function()
-{
-  showVersion();
-  console.log("\n[*] Compile :\nnerd [--env std|node|arduino|wasm|android] [--target the-target] [--run] [--reg 1000] [--preset speed|size] [-o output] [--tips] [--flash device] source.js|project.json\n");
-  console.log("[*] Show project :\nnerd [--project] [project.json]\n");
-  console.log("[*] Clean project :\nnerd [--clean] [--purge] [path_to_project.json]\n");
-  console.log("[*] Copy example files :\nnerd --example\n");
-  console.log("[*] Nerd version :\nnerd --version\n");
+function processExports(dirout, env){
+    var out = '#pragma once\n'
+    //out +=    '#include "'+ path.relative(dirout, "nerdcore/src/nerd.hpp") +'"\n'
+    out +=    '#include <nerdcore/src/nerd.hpp>\n'
+    //out +=    'using namespace NerdCore::Global;\n'
+
+    var req = "\n#define __NERD_GET_REQTABLE() { \\\n"
+
+    module_table.forEach(v => {
+        out += '\n// ' + v.path + '\n'
+        out += 'NerdCore::VAR __MODULE_' + v.name + '_main();\n'
+
+        req += "\treqmodule{ 0x"+v.name+", __MODULE_"+v.name+"_main }, \\\n"
+    })
+
+    req += "}\n"
+    out += req +
+            "#define __NERD_STDENV_INIT() \\\n"
+    env_h = "#define __NERD_STDENV_H() \\\n"
+    env_c = "#define __NERD_STDENV_C() \\\n"
+
+    env.forEach(p => {
+        var varname = p, hash = crc32(p).toString(16).toUpperCase();
+        if(fs.existsSync("nerd_modules/"+p+"/package.json")){
+            var json = JSON.parse(fs.readFileSync("nerd_modules/"+p+"/package.json"))
+            if(json.nerd){
+                if(json.nerd.stdvarname)
+                    varname = json.nerd.stdvarname
+            }
+        }
+        if(varname == "require") return;
+        out += "\trequire(__NERD_THIS, 0x"+hash+"); \\\n"
+        if(varname == "Object") return;
+        env_h+="\textern NerdCore::VAR "+varname+"; \\\n"
+        env_c+="\tNerdCore::VAR "+varname+"; \\\n"
+    })
+    out = [out.substring(0, out.length-3),
+           env_h.substring(0, env_h.length-3),
+           env_c.substring(0, env_c.length-3)].join("\n\n")+
+           '\n\n#define __NERD_EXPORTED\n'+
+           '#include <nerdcore/src/nerd.hpp>\n'
+
+    fs.writeFileSync(dirout + "/nerd_exports.hpp", out)
 }
 
-
-switch(ACTION)
-{
-  case "version":
-    showVersion();
-    break;
-
-  case "help":
-    Help();
-    break;
-
-  case "example":
-    copyExample();
-    break;
-
-  case "showproject":
-    showProject();
-    break;
-
-  case "setconfig":
-    setConfig();
-    break;
-
-  case "showconfig":
-    showConfig();
-    break;
-
-  case "reinitconfig":
-    reinitConfig();
-    break;
-
-  case "build":
-    Build();
-    break;
-
-  case "clean":
-    Clean();
-    break;
-
-  default:
-    Help();
-    break;
+function getCPPFiles(_dir, rel){
+    var ret = []
+    var dir = fs.readdirSync(_dir, {withFileTypes: true})
+    dir.forEach(d => {
+        if(d.isDirectory()){
+            ret = ret.concat(getCPPFiles(_dir + "/" + d.name, rel))
+        }else if(d.isFile()){
+            //console.log(path.extname(d.name))
+            var ext = path.extname(d.name)
+            if(ext == ".cpp" || ext == ".c")
+                ret.push(tostr(path.relative(rel, _dir + "/" + d.name)))
+        }
+    })
+    return ret
 }
+
+function cmakeReplace(str){
+    return str.replaceAll('__EXTERN__','${NERD_PATH}/external')
+              .replaceAll('__PROJ__','${NERD_PROJ}')
+              .replaceAll('__CACHE__','${NERD_CACHE}')
+}
+
+function createCMake(dirout){
+    var cmake = 'set(NERD_PROJ nerd_program CACHE PATH "Nerd Output Name")\n'
+        cmake +='set(NERD_PATH '+tostr(__dirname)+' CACHE PATH "Path to nerd")\n'
+        cmake +='set(NERD_CACHE "${NERD_PATH}/.nerd")\n'
+        cmake +='project(${NERD_PROJ})\n'
+        cmake +='add_executable(${NERD_PROJ} \n\t'
+        //cmake += getCPPFiles(dirout, dirout).join("\n\t") + "\n\t"
+        //cmake += getCPPFiles("nerdcore/src", dirout).join("\n\t")
+        cmake += '\t'+tostr(__dirname+'/nerdcore/src/nerd.cpp')+'\n'
+        cmake += '\t'+src_array.join("\n\t")+'\n'
+        cmake += ')\n'
+        cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY CXX_STANDARD 17)\n"
+        cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)\n"
+        cmake += "target_include_directories(${NERD_PROJ} PRIVATE ${NERD_PATH})\n"
+        cmake += "target_include_directories(${NERD_PROJ} PRIVATE .)\n\n"
+        cmake += cmakeReplace(pkgcmake.join("\n\n"))
+
+    fs.writeFileSync(dirout + "/CMakeLists.txt", cmake)
+}
+
+function setEntry(fin, dirin, dirout){
+    var fout = dirout + '/' + path.relative(dirin, fin) + '.cpp'
+    var module_name = crc32(path.relative(dirin, fin)).toString(16).toUpperCase()
+    var out = '\n\nint main(int argc, char** argv){\n' // TODO args to process.argv
+        out +='\t__NERD_INIT_VALUES(argc, argv);\n'
+        out +='\treturn __MODULE_' + module_name + '_main();\n}'
+    fs.appendFileSync(fout, out);
+}
+
+function runcmakecached(){
+    cmakecached.forEach(c => {
+        c.path = cmakeReplace(c.path).replaceAll("${NERD_PATH}",__dirname)
+        var cachepath = ".nerd/"+c.name
+        if(!fs.existsSync(cachepath)){
+            fs.mkdirSync(cachepath, {recursive: true})
+            process.chdir(cachepath)
+            console.log("running "+"cmake "+c.path)
+            execSync("cmake "+c.path, {stdio: 'inherit'})
+            execSync("cmake --build .", {stdio: 'inherit'})
+            process.chdir(__dirname)
+        }
+        var fullpath = path.resolve(cachepath+"/CMakeCache.txt")
+        var newcachefp = path.resolve(cachepath+"/SetCMakeCache.txt")
+        var newcache = []
+        var read = fs.readFileSync(fullpath).toString()
+        read.split("\n").forEach(line => {
+            if(line[0] == "#" || line[0] == "/" || line.length==0) return;
+            if(line.startsWith("CMAKE")) return;
+            line = line.split("=")
+            var value = line[1]
+            line = line[0].split(":")
+            newcache.push('set('+line[0]+' "'+value+'" CACHE '+line[1]+' "Cached from '+cachepath+'")')
+        })
+        fs.writeFileSync(newcachefp, newcache.join("\n"))
+        cmakecmdadd.push("-C "+tostr(newcachefp))
+    })
+}
+
+function doconfigure(dir){
+    fs.mkdirSync(dir+"/build")
+    process.chdir(dir+"/build")
+    execSync("cmake "+cmakecmdadd.join(" ")+" ..", {stdio: 'inherit'})
+    process.chdir(__dirname)
+}
+
+function dobuild(dir){
+    process.chdir(dir+"/build")
+    execSync("cmake --build . -- -j", {stdio: 'inherit'})
+    process.chdir(__dirname)
+}
+
+//preprocess_require("in/test.ng")
+
+registerPackages("nerd_modules","ng",__dirname)
+
+function copyother(dirin, dirout){
+    var dir = fs.readdirSync(dirin, {withFileTypes: true})
+    if(dir.length > 0)
+        dir.forEach(d => {
+            var add = '/'+d.name
+            if(d.isDirectory()){
+                copyother(dirin + add, dirout + add)
+            }else if(d.isFile()){
+                var ext = path.extname(d.name)
+                if(ext == ".js" || ext == ".ng" || ext == ".ts" || ext == ".json") return;
+                if(!fs.existsSync(dirout)) fs.mkdirSync(dirout, {recursive: true})
+                fs.copyFile(dirin + add, dirout + add, ()=>{})
+            }
+        })
+}
+
+function noentry_err(){
+    throw 'Could not find package.json\n'+
+          'Check the path or set a custom entry with -E or --entry\n';
+}
+
+function _processProject(dirin, dirout, options){
+    options = options || {}
+    var entry
+    if(options.entry)
+        entry = options.entry
+    else{
+        var json = dirin+'/package.json'
+        if(!fs.existsSync(json)) noentry_err();
+        json = JSON.parse(fs.readFileSync(json))
+        if(!json.main) noentry_err();
+        entry = dirin+'/'+json.main
+    }
+
+    registerPackages(dirin+"/node_modules","js",dirin)
+    registerPackages(dirin+"/nerd_modules","ng",dirin)
+
+    var env = [] // std packages regardless of options
+
+    if(options.env) env=env.concat(options.env)
+
+    if(fs.existsSync(dirout))
+        fs.rmSync(dirout, {recursive: true})
+    
+    _processPackage(dirout, packages["require"])
+    env.forEach(pkg => _processPackage(dirout, packages[pkg]))
+
+    _processFile(entry, dirin, dirout);
+
+    processExports(dirout, env);
+
+    //copyother(__dirname+'/nerd_modules', dirout+'/nerd_modules');
+    //copyother(dirin, dirout);
+
+    setEntry(entry, dirin, dirout);
+
+    createCMake(dirout)
+
+    if(options.dontdocache) return;
+    runcmakecached()
+
+    if(options.dontconfigure) return;
+    doconfigure(dirout)
+
+    if(options.dontbuild) return;
+    dobuild(dirout)
+}
+
+var JSenv = ["console","Object","JSON","Math","RegExp"];
+
+//_processProject("in", "out")
+
+
+function CLI(options){
+    var options = options || {}
+    var dirin, dirout;
+    var args = process.argv.slice(2);
+    var isdir = false
+    for (let i = 0; i < args.length; i++) {
+        var arg = args[i];
+        
+        if(arg.startsWith("--")){
+            switch(arg){
+                case '--output':
+                    arg = args[++i];
+                    if(!arg) doerror('Option --output must accompany output path!');
+                    dirout = arg;
+                    break;
+                case '--generate':
+                    options.dontconfigure = true;
+                    break;
+                case '--entry':
+                    arg = args[++i];
+                    if(!arg) doerror('Option --entry must accompany entry file path!');
+                    options.entry = arg;
+                    break;
+                default:
+                    doerror("Unknown option: "+arg)
+            }
+        }else if (arg.startsWith("-")){
+            switch(arg){
+                case '-O':
+                    arg = args[++i];
+                    if(!arg) doerror('Option -O must accompany output path!');
+                    dirout = arg;
+                    break;
+                case '-G':
+                    options.dontconfigure = true;
+                    break;
+                case '-E':
+                    arg = args[++i];
+                    if(!arg) doerror('Option -E must accompany entry file path!');
+                    options.entry = arg;
+                    break;
+                default:
+                    doerror("Unknown option: "+arg)
+            }
+        }else{
+            var stat = fs.statSync(arg)
+            if(stat.isFile()){
+                dirin = path.dirname(arg)
+                options.entry = arg
+            }else if(stat.isDirectory()){
+                isdir = true;
+                dirin = arg;
+            }else{
+                doerror("Given input '"+arg+"' does not exist!");
+            }
+        }
+    }
+    if(!dirout)
+        dirout = ".nerd/projects/"+
+            crc32((isdir?path.basename:path.dirname)(dirin)).toString(16).toUpperCase();
+
+    dirin = path.resolve(dirin)
+    process.chdir(__dirname);
+
+    options.env = JSenv
+
+    _processProject(dirin, dirout, options)
+}
+
+CLI()

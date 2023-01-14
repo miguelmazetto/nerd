@@ -61,7 +61,7 @@ _JSON.parse = function(__json)
 				}
 				else
 				{
-					printf("Failed to parse JSON: %d\n", r);
+					printf("Failed to parse _JSON: %d\n", r);
 					return __RESULT;
 				}
 			
@@ -78,5 +78,11 @@ _JSON.parse = function(__json)
 	}}
 	
 };
+
+{{
+	#ifdef JSON
+		JSON = _JSON;
+	#endif
+}}
 
 return _JSON;

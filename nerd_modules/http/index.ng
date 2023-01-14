@@ -21,22 +21,30 @@
 
 */
 
- include("<App.h>");
- include ("httpStruct.h");
+include("<App.h>");
+include("httpStruct.h");
 
- var http = {};
- var console = require("console");
+var http = {};
 
 var _protoRes = function() {};
+
+_protoRes.prototype.writeHead = function(statusCode, headers) {
+	this.setStatus(statusCode);
+	if(headers){
+		var key;
+		for(key in headers)
+			this.writeHeader(key, headers[key])
+	}
+}
 
 {{
 	
 	_protoRes["prototype"]["setStatus"] = __LAZY_RES_STATUS;
-	_protoRes["prototype"]["setHeader"] = __LAZY_RES_HEADER;
+	_protoRes["prototype"]["writeHeader"] = __LAZY_RES_HEADER;
 	_protoRes["prototype"]["write"] = __LAZY_RES_WRITE;
 	_protoRes["prototype"]["end"] = __LAZY_RES_END;
 }}
- 
+
 var _protoReq = function() {};
 
 {{
@@ -44,9 +52,9 @@ var _protoReq = function() {};
 	_protoReq["prototype"]["getHeader"] = __LAZY_REQ_HEADER;
 	_protoReq["prototype"]["getUrl"] = __LAZY_REQ_URL;
 }}
- 
- http.createServer = function(_cb)
- {
+
+http.createServer = function(_cb)
+{
 	
 	var app = {};
 	{{
@@ -66,12 +74,14 @@ var _protoReq = function() {};
 					}
 					__Nerd_HttpStruct httpStruct;
 
-					auto uwsCB = [_cb, _protoRes, _protoReq](auto *resUWS, auto *reqUWS)
+					auto uwsCB = [_cb, _protoRes, _protoReq, app](auto *resUWS, auto *reqUWS)
 					{
 						var _res = __NERD_NEW(_protoRes)();
 						__NERD_OBJECT(_res)->bind = resUWS;
 						var _req = __NERD_NEW(_protoReq)();
 						__NERD_OBJECT(_req)->bind = reqUWS;
+
+						_res["headers"] = new NerdCore::Class::Object();
 
 						resUWS->onData([=](auto chunk, bool isLast) 
 						{
@@ -93,7 +103,7 @@ var _protoReq = function() {};
 							}
 						});
 
-						_cb(null, _req, _res);
+						_cb(app, _req, _res);
 					};
 
 
@@ -108,8 +118,8 @@ var _protoReq = function() {};
 			});
 		}}
 	};
- 
+
 	return app;
- };
- 
- return http;
+};
+
+return http;

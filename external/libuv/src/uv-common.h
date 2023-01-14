@@ -30,12 +30,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
-
-#if defined(_MSC_VER) && _MSC_VER < 1600
-# include "uv/stdint-msvc2008.h"
-#else
-# include <stdint.h>
-#endif
+#include <stdint.h>
 
 #include "uv.h"
 #include "uv/tree.h"
@@ -60,6 +55,16 @@ extern int snprintf(char*, size_t, const char*, ...);
 #define STATIC_ASSERT(expr)                                                   \
   void uv__static_assert(int static_assert_failed[1 - 2 * !(expr)])
 
+#if defined(__GNUC__) && (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 7)
+#define uv__load_relaxed(p) __atomic_load_n(p, __ATOMIC_RELAXED)
+#define uv__store_relaxed(p, v) __atomic_store_n(p, v, __ATOMIC_RELAXED)
+#else
+#define uv__load_relaxed(p) (*p)
+#define uv__store_relaxed(p, v) do *p = v; while (0)
+#endif
+
+#define UV__UDP_DGRAM_MAXSIZE (64 * 1024)
+
 /* Handle flags. Some flags are specific to Windows or UNIX. */
 enum {
   /* Used by all handles. */
@@ -73,7 +78,6 @@ enum {
   /* Used by streams. */
   UV_HANDLE_LISTENING                   = 0x00000040,
   UV_HANDLE_CONNECTION                  = 0x00000080,
-  UV_HANDLE_SHUTTING                    = 0x00000100,
   UV_HANDLE_SHUT                        = 0x00000200,
   UV_HANDLE_READ_PARTIAL                = 0x00000400,
   UV_HANDLE_READ_EOF                    = 0x00000800,
@@ -98,8 +102,7 @@ enum {
   UV_HANDLE_TCP_KEEPALIVE               = 0x02000000,
   UV_HANDLE_TCP_SINGLE_ACCEPT           = 0x04000000,
   UV_HANDLE_TCP_ACCEPT_STATE_CHANGING   = 0x08000000,
-  UV_HANDLE_TCP_SOCKET_CLOSED           = 0x10000000,
-  UV_HANDLE_SHARED_TCP_SOCKET           = 0x20000000,
+  UV_HANDLE_SHARED_TCP_SOCKET           = 0x10000000,
 
   /* Only used by uv_udp_t handles. */
   UV_HANDLE_UDP_PROCESSING              = 0x01000000,
@@ -121,12 +124,19 @@ enum {
   UV_SIGNAL_ONE_SHOT                    = 0x02000000,
 
   /* Only used by uv_poll_t handles. */
-  UV_HANDLE_POLL_SLOW                   = 0x01000000
+  UV_HANDLE_POLL_SLOW                   = 0x01000000,
+
+  /* Only used by uv_process_t handles. */
+  UV_HANDLE_REAP                        = 0x10000000
 };
 
 int uv__loop_configure(uv_loop_t* loop, uv_loop_option option, va_list ap);
 
 void uv__loop_close(uv_loop_t* loop);
+
+int uv__read_start(uv_stream_t* stream,
+                   uv_alloc_cb alloc_cb,
+                   uv_read_cb read_cb);
 
 int uv__tcp_bind(uv_tcp_t* tcp,
                  const struct sockaddr* addr,
@@ -247,6 +257,14 @@ void uv__threadpool_cleanup(void);
 #define uv__is_closing(h)                                                     \
   (((h)->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED)) != 0)
 
+#if defined(_WIN32)
+# define uv__is_stream_shutting(h)                                            \
+  (h->stream.conn.shutdown_req != NULL)
+#else
+# define uv__is_stream_shutting(h)                                            \
+  (h->shutdown_req != NULL)
+#endif
+
 #define uv__handle_start(h)                                                   \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_ACTIVE) != 0) break;                          \
@@ -325,6 +343,27 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+#define uv__get_internal_fields(loop)                                         \
+  ((uv__loop_internal_fields_t*) loop->internal_fields)
+
+#define uv__get_loop_metrics(loop)                                            \
+  (&uv__get_internal_fields(loop)->loop_metrics)
+
+#define uv__metrics_inc_loop_count(loop)                                      \
+  do {                                                                        \
+    uv__get_loop_metrics(loop)->metrics.loop_count++;                         \
+  } while (0)
+
+#define uv__metrics_inc_events(loop, e)                                       \
+  do {                                                                        \
+    uv__get_loop_metrics(loop)->metrics.events += (e);                        \
+  } while (0)
+
+#define uv__metrics_inc_events_waiting(loop, e)                               \
+  do {                                                                        \
+    uv__get_loop_metrics(loop)->metrics.events_waiting += (e);                \
+  } while (0)
+
 /* Allocator prototypes */
 void *uv__calloc(size_t count, size_t size);
 char *uv__strdup(const char* s);
@@ -333,5 +372,23 @@ void* uv__malloc(size_t size);
 void uv__free(void* ptr);
 void* uv__realloc(void* ptr, size_t size);
 void* uv__reallocf(void* ptr, size_t size);
+
+typedef struct uv__loop_metrics_s uv__loop_metrics_t;
+typedef struct uv__loop_internal_fields_s uv__loop_internal_fields_t;
+
+struct uv__loop_metrics_s {
+  uv_metrics_t metrics;
+  uint64_t provider_entry_time;
+  uint64_t provider_idle_time;
+  uv_mutex_t lock;
+};
+
+void uv__metrics_update_idle_time(uv_loop_t* loop);
+void uv__metrics_set_provider_entry_time(uv_loop_t* loop);
+
+struct uv__loop_internal_fields_s {
+  unsigned int flags;
+  uv__loop_metrics_t loop_metrics;
+};
 
 #endif /* UV_COMMON_H_ */

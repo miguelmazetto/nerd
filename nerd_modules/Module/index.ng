@@ -1,7 +1,0 @@
-// NodeJS modules compatibility
-var module = function()
-{
-
-};
-
-return module;
