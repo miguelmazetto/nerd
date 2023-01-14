@@ -60,10 +60,4 @@ _Object.clone = function(obj)
 	}
 	return result;
 };
-
-{{
-	#ifdef Object
-		Object = _Object;
-	#endif
-}}
 return _Object;

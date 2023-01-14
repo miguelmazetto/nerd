@@ -330,12 +330,4 @@ _Math.trunc = function (x, y)
 };
 
 /*** END METHODS ***/
-
-
-{{
-	#ifdef _Math
-		Math = _Math;
-	#endif
-}}
-
 return _Math

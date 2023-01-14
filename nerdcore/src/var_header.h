@@ -130,9 +130,9 @@ namespace NerdCore
 		*/
 		
 		//TODO: Backtrace
-
+		
 		template <class... Args>
-		VAR operator() (NerdCore::VAR __NERD_THIS = NerdCore::VAR(NerdCore::Enum::Type::Null, 0), Args... args) const
+		VAR operator() (NerdCore::VAR __NERD_THIS, Args... args) const
 		{
 			if (type != NerdCore::Enum::Type::Function)
 			{

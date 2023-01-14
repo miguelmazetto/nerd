@@ -123,7 +123,7 @@ function _generateCode(AST, tab, ctx){
             return ret
 
         case 'CallExpression':
-            var nthis = {type: 'Identifier', name: '__NERD_THIS'}
+            var nthis = {type: 'Identifier', name: 'undefined'}
             if(AST.callee.type == "MemberExpression"){
                 var prop = generateCode(AST.callee.property, tab, ctx);
                 switch(prop){
@@ -131,9 +131,6 @@ function _generateCode(AST, tab, ctx){
                         if(AST.arguments.length > 0)
                             nthis = AST.arguments.shift();
                         AST.callee = AST.callee.object;
-                        break;
-                    default:
-                        nthis = AST.callee.object;
                         break;
                 }
             }
@@ -199,7 +196,10 @@ function _generateCode(AST, tab, ctx){
             var bf = '', aft ='';
             switch(AST.operator){
                 // Simple operators, are the same in js and cpp
-                case '=': bf='('; aft=', '+generateCode(AST.left, tab, ctx)+')'
+                case '=':
+                    if(ctx.stack[1].type != 'ExpressionStatement'){
+                        bf='('; aft=', '+generateCode(AST.left, tab, ctx)+')'
+                    }
                 case '+': case '-':
                 case '*': case '/': case '%':
                 case '<': case '<=':
@@ -285,6 +285,11 @@ function _generateCode(AST, tab, ctx){
             ret = tab + "var " + ctx.funcvar + " = "
 
         case 'FunctionExpression':
+            //if(!ctx.funcvar && ctx.stack[1].type == 'AssignmentExpression' &&
+            //        ctx.stack[2].type == 'ExpressionStatement'){
+            //    ret = ''
+            //    ctx.funcvar = generateCode(ctx.stack[1].left, tab, ctx)
+            //}
             if(ctx.funcvar){
                 var funcvar = ctx.funcvar;
                 ctx.funcvar = false;
@@ -375,7 +380,6 @@ function _generateCode(AST, tab, ctx){
         case 'UpdateExpression':
             return generateCode(AST.argument, tab, ctx) + AST.operator
         
-
         case 'WhileStatement':
             ctx.nonl = true
             ret = generateCode(AST.body, tab, ctx)
@@ -600,7 +604,7 @@ function processExports(dirout, env){
             }
         }
         if(varname == "require") return;
-        out += "\trequire(__NERD_THIS, 0x"+hash+"); \\\n"
+        out += "\t"+varname+" = require(__NERD_THIS, 0x"+hash+"); \\\n"
         if(varname == "Object") return;
         env_h+="\textern NerdCore::VAR "+varname+"; \\\n"
         env_c+="\tNerdCore::VAR "+varname+"; \\\n"

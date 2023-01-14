@@ -38,7 +38,7 @@ namespace NerdCore::Class
 
 		NerdCore::Type::function_t* value = nullptr;
 		NerdCore::Type::object_t object;
-		NerdCore::VAR This;
+		//NerdCore::VAR This;
 		//void* bind = nullptr;
 		// Methods
 		inline void Delete() noexcept;
@@ -50,7 +50,7 @@ namespace NerdCore::Class
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), This, _args, i);
+				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object["this"], _args, i);
 			}
 			else
 			{
@@ -60,7 +60,7 @@ namespace NerdCore::Class
 			return (*static_cast<NerdCore::Type::function_t *>(value))(__NERD_THIS, _args, i);
 			#endif
 		}
-		
+
 		template <class... Args>
 		NerdCore::VAR operator()(NerdCore::VAR __NERD_THIS, Args... args)
 		{
@@ -69,7 +69,7 @@ namespace NerdCore::Class
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), This, _args, i);
+				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object["this"], _args, i);
 			}
 			else
 			{

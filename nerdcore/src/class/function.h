@@ -131,8 +131,6 @@ namespace NerdCore::Class
 	NerdCore::VAR &Function::operator[](int key)
 	{
 		std::string _str = std::to_string(key);
-		NerdCore::Type::StringView _sview = _str;
-		
 		return object[_str];
 	}
 	#else
@@ -160,8 +158,6 @@ namespace NerdCore::Class
 	NerdCore::VAR &Function::operator[](double key)
 	{
 		std::string _str = std::to_string(key);
-		NerdCore::Type::StringView _sview = _str;
-		
 		return object[_str];
 	}
 	#else

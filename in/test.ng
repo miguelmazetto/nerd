@@ -1,0 +1,11 @@
+var http = require('http');
+
+http.createServer(function (req, res) {
+  console.log("received!",undefined)
+  res.writeHead(200, {'Content-Type': 'text/plain'});
+  console.log("wrote head!")
+  res.write('Hello World!');
+  console.log("wrote Hello")
+  res.end();
+  console.log("ended")
+}).listen(8080);

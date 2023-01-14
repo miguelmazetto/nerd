@@ -79,10 +79,4 @@ _JSON.parse = function(__json)
 	
 };
 
-{{
-	#ifdef JSON
-		JSON = _JSON;
-	#endif
-}}
-
 return _JSON;

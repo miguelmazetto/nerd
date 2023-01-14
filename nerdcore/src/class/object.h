@@ -137,7 +137,13 @@ namespace NerdCore::Class
 			{
 				if(__proto[key].type != NerdCore::Enum::Type::Null)
 				{
-					object[key] = __proto[key];
+					if(__proto[key].type == NerdCore::Enum::Type::Function){
+						object[key] = NerdCore::VAR(new NerdCore::Class::Function(
+							((NerdCore::Class::Function*)__proto[key].data.ptr)->value,
+							this));
+					}else{
+						object[key] = __proto[key];
+					}
 					break;
 				}
 				__proto = __proto["__proto__"];
