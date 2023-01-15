@@ -654,15 +654,11 @@ function createCMake(dirout){
         cmake +='set(NERD_CACHE "${NERD_PATH}/.nerd")\n'
         cmake +='project(${NERD_PROJ})\n'
         cmake +='add_executable(${NERD_PROJ} \n'
-        //cmake += getCPPFiles(dirout, dirout).join("\n\t") + "\n\t"
-        //cmake += getCPPFiles("nerdcore/src", dirout).join("\n\t")
         cmake += '\t'+tostr('${NERD_PATH}/nerdcore/src/nerd.cpp')+'\n'
         cmake += '\t'+src_array.join("\n\t")+'\n'
         cmake += ')\n'
         cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY CXX_STANDARD 17)\n"
         cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)\n"
-        //cmake += "#target_compile_options(${NERD_PROJ} PRIVATE /std:c++17)\n"
-        //cmake += 'set(CMAKE_CXX_FLAGS "/std:c++17 ${CMAKE_CXX_FLAGS}")\n'
         cmake += "target_include_directories(${NERD_PROJ} PRIVATE ${NERD_PATH})\n"
         cmake += "target_include_directories(${NERD_PROJ} PRIVATE .)\n\n"
         cmake += cmakeReplace(pkgcmake.join("\n\n"))
