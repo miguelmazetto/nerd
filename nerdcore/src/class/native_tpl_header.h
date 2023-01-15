@@ -28,7 +28,11 @@
 namespace NerdCore::Class
 {
 	template<typename T>
+#ifdef _MSC_VER
+	class NativeTPL : public Base
+#else
 	class NativeTPL : public virtual Base
+#endif
 	{
 		
 	private:

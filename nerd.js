@@ -4,8 +4,15 @@ const path = require("path");
 const process = require("process");
 const { execSync } = require("child_process");
 const { exit } = require("process");
+const os = require("os");
 
 let nativeL = new acorn.TokenType("{{", {beforeExpr: true, startsExpr: true})
+
+let bar = os.platform() == "win32" ? '\\' : '/'
+
+function plat(p){
+    return p.replaceAll('\\','/')
+}
 
 function doerror(...a){
     console.error(...a)
@@ -58,7 +65,7 @@ function genArray(arr, tab, ctx){
 }
 
 function tostr(s){
-    return '"' + s.replaceAll('"','\\"').replaceAll('\n','\\n').replaceAll('\\','\\\\') + '"'
+    return '"' + s.replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('\n','\\n') + '"'
 }
 
 function path_walker(curpath, target){
@@ -66,9 +73,9 @@ function path_walker(curpath, target){
     if(curpath == ".")
         cur = []
     else
-        cur = curpath.split("/")
+        cur = curpath.split(bar)
 
-    var p = target.split("/")
+    var p = target.split(bar)
     for (let i = 0; i < p.length; i++) {
         switch(p[i]){
             case ".": break;
@@ -79,7 +86,7 @@ function path_walker(curpath, target){
                 cur.push(p[i])
         }
     }
-    return cur.join("/")
+    return cur.join(bar)
 }
 
 // console.log(ctx.stack) inside the compiler
@@ -490,11 +497,12 @@ var packages = {}
 var processed_modules = {}
 
 function _processFile(fin, inroot, outroot, options){
+    console.log("inroot = "+inroot,"fin = "+fin)
     console.log("Processing "+path.relative(inroot, fin))
     options = options || {}
 
     options.module_path = options.module_path || path.relative(inroot, fin)
-    options.module_name = options.module_name || crc32(options.module_path).toString(16).toUpperCase()
+    options.module_name = options.module_name || crc32(plat(options.module_path)).toString(16).toUpperCase()
 
     module_table.push({ path: options.module_path, name: options.module_name })
 
@@ -505,11 +513,11 @@ function _processFile(fin, inroot, outroot, options){
         if(packages[name] || fs.existsSync(p)){
             reqs.push([name, p])
             return "require(module, 0x"+
-                crc32(path.relative(inroot, p)).toString(16).toUpperCase()+" /* "+name+" */)"
+                crc32(plat(path.relative(inroot, p))).toString(16).toUpperCase()+" /* "+name+" */)"
         }else
             throw "Could not find require: "+name
     }
-    var fout = outroot+'/'+options.module_path
+    var fout = outroot+bar+options.module_path
     var out
     try{
         out = generateFile( getAST( fs.readFileSync(fin) ), fout, outroot, options)
@@ -518,7 +526,7 @@ function _processFile(fin, inroot, outroot, options){
     }
     fs.mkdirSync( path.dirname(fout), {recursive: true} )
     fs.writeFileSync(fout + ".cpp", out, {})
-    src_array.push(tostr(path.relative(outroot, fout+".cpp")))
+    src_array.push(tostr(plat(path.relative(outroot, fout+".cpp"))))
 
     reqs.forEach(v=>{
         if(processed_modules[v]) return;
@@ -546,7 +554,7 @@ function _processPackage(outroot, options){
                 cmakecached.push(options.nerd.lib.cmake_cached)
         }
     options.module_name = crc32(options.name).toString(16).toUpperCase()
-    _processFile(options.root+'/'+options.pkgdir+'/'+options.main, options.root, outroot, options)
+    _processFile(options.root+bar+options.pkgdir+bar+options.main, options.root, outroot, options)
 }
 
 function registerPackages(pkgsdir, ext, root){
@@ -554,14 +562,14 @@ function registerPackages(pkgsdir, ext, root){
 
     fs.readdirSync(pkgsdir, {withFileTypes: true}).forEach(pkg => {
         if(pkg.isDirectory()){
-            var pkgdir = pkgsdir+'/'+pkg.name
+            var pkgdir = pkgsdir+bar+pkg.name
             var json = {};
-            if(fs.existsSync(pkgdir + "/package.json"))
-                json = JSON.parse(fs.readFileSync(pkgdir + "/package.json"));
+            if(fs.existsSync(pkgdir + bar + "package.json"))
+                json = JSON.parse(fs.readFileSync(pkgdir + bar + "package.json"));
             // TODO: To nerd
             json.main = json.main || "index." + ext;
             json.name = json.name || path.basename(pkgdir);
-            if(!fs.existsSync(pkgdir + '/' + json.main)){
+            if(!fs.existsSync(pkgdir + bar + json.main)){
                 console.log("Could not find main file of package "+pkg.name+'!');
             }
             json.root = root
@@ -595,9 +603,9 @@ function processExports(dirout, env){
     env_c = "#define __NERD_STDENV_C() \\\n"
 
     env.forEach(p => {
-        var varname = p, hash = crc32(p).toString(16).toUpperCase();
-        if(fs.existsSync("nerd_modules/"+p+"/package.json")){
-            var json = JSON.parse(fs.readFileSync("nerd_modules/"+p+"/package.json"))
+        var varname = p, hash = crc32(plat(p)).toString(16).toUpperCase();
+        if(fs.existsSync("nerd_modules"+bar+p+bar+"package.json")){
+            var json = JSON.parse(fs.readFileSync("nerd_modules"+bar+p+bar+"package.json"))
             if(json.nerd){
                 if(json.nerd.stdvarname)
                     varname = json.nerd.stdvarname
@@ -615,7 +623,7 @@ function processExports(dirout, env){
            '\n\n#define __NERD_EXPORTED\n'+
            '#include <nerdcore/src/nerd.hpp>\n'
 
-    fs.writeFileSync(dirout + "/nerd_exports.hpp", out)
+    fs.writeFileSync(dirout + bar + "nerd_exports.hpp", out)
 }
 
 function getCPPFiles(_dir, rel){
@@ -642,27 +650,29 @@ function cmakeReplace(str){
 
 function createCMake(dirout){
     var cmake = 'set(NERD_PROJ nerd_program CACHE PATH "Nerd Output Name")\n'
-        cmake +='set(NERD_PATH '+tostr(__dirname)+' CACHE PATH "Path to nerd")\n'
+        cmake +='set(NERD_PATH '+tostr(plat(__dirname))+' CACHE PATH "Path to nerd")\n'
         cmake +='set(NERD_CACHE "${NERD_PATH}/.nerd")\n'
         cmake +='project(${NERD_PROJ})\n'
-        cmake +='add_executable(${NERD_PROJ} \n\t'
+        cmake +='add_executable(${NERD_PROJ} \n'
         //cmake += getCPPFiles(dirout, dirout).join("\n\t") + "\n\t"
         //cmake += getCPPFiles("nerdcore/src", dirout).join("\n\t")
-        cmake += '\t'+tostr(__dirname+'/nerdcore/src/nerd.cpp')+'\n'
+        cmake += '\t'+tostr('${NERD_PATH}/nerdcore/src/nerd.cpp')+'\n'
         cmake += '\t'+src_array.join("\n\t")+'\n'
         cmake += ')\n'
         cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY CXX_STANDARD 17)\n"
         cmake += "set_property(TARGET ${NERD_PROJ} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)\n"
+        //cmake += "#target_compile_options(${NERD_PROJ} PRIVATE /std:c++17)\n"
+        //cmake += 'set(CMAKE_CXX_FLAGS "/std:c++17 ${CMAKE_CXX_FLAGS}")\n'
         cmake += "target_include_directories(${NERD_PROJ} PRIVATE ${NERD_PATH})\n"
         cmake += "target_include_directories(${NERD_PROJ} PRIVATE .)\n\n"
         cmake += cmakeReplace(pkgcmake.join("\n\n"))
 
-    fs.writeFileSync(dirout + "/CMakeLists.txt", cmake)
+    fs.writeFileSync(dirout + bar + "CMakeLists.txt", cmake)
 }
 
 function setEntry(fin, dirin, dirout){
-    var fout = dirout + '/' + path.relative(dirin, fin) + '.cpp'
-    var module_name = crc32(path.relative(dirin, fin)).toString(16).toUpperCase()
+    var fout = dirout + bar + path.relative(dirin, fin) + '.cpp'
+    var module_name = crc32(plat(path.relative(dirin, fin))).toString(16).toUpperCase()
     var out = '\n\nint main(int argc, char** argv){\n' // TODO args to process.argv
         out +='\t__NERD_INIT_VALUES(argc, argv);\n'
         out +='\treturn __MODULE_' + module_name + '_main();\n}'
@@ -672,26 +682,27 @@ function setEntry(fin, dirin, dirout){
 function runcmakecached(){
     cmakecached.forEach(c => {
         c.path = cmakeReplace(c.path).replaceAll("${NERD_PATH}",__dirname)
-        var cachepath = ".nerd/"+c.name
+        var cachepath = ".nerd"+bar+c.name
         if(!fs.existsSync(cachepath)){
             fs.mkdirSync(cachepath, {recursive: true})
             process.chdir(cachepath)
             console.log("running "+"cmake "+c.path)
             execSync("cmake "+c.path, {stdio: 'inherit'})
-            execSync("cmake --build .", {stdio: 'inherit'})
+            execSync("cmake --build ." + (os.platform() != "win32" ? " -- -j" : ""), {stdio: 'inherit'})
             process.chdir(__dirname)
         }
-        var fullpath = path.resolve(cachepath+"/CMakeCache.txt")
-        var newcachefp = path.resolve(cachepath+"/SetCMakeCache.txt")
+        var fullpath = path.resolve(cachepath+bar+"CMakeCache.txt")
+        var newcachefp = path.resolve(cachepath+bar+"SetCMakeCache.txt")
         var newcache = []
         var read = fs.readFileSync(fullpath).toString()
         read.split("\n").forEach(line => {
-            if(line[0] == "#" || line[0] == "/" || line.length==0) return;
+            line = line.replaceAll('\r','')
+            if(line[0] == "#" || line[0] == "/" || line.length<7) return;
             if(line.startsWith("CMAKE")) return;
             line = line.split("=")
             var value = line[1]
             line = line[0].split(":")
-            newcache.push('set('+line[0]+' "'+value+'" CACHE '+line[1]+' "Cached from '+cachepath+'")')
+            newcache.push('set('+line[0]+' '+tostr(value)+' CACHE '+line[1]+' "Cached from '+cachepath.replaceAll('\\','\\\\')+'")')
         })
         fs.writeFileSync(newcachefp, newcache.join("\n"))
         cmakecmdadd.push("-C "+tostr(newcachefp))
@@ -699,15 +710,15 @@ function runcmakecached(){
 }
 
 function doconfigure(dir){
-    fs.mkdirSync(dir+"/build")
-    process.chdir(dir+"/build")
+    fs.mkdirSync(dir+bar+"build")
+    process.chdir(dir+bar+"build")
     execSync("cmake "+cmakecmdadd.join(" ")+" ..", {stdio: 'inherit'})
     process.chdir(__dirname)
 }
 
 function dobuild(dir){
-    process.chdir(dir+"/build")
-    execSync("cmake --build . -- -j", {stdio: 'inherit'})
+    process.chdir(dir+bar+"build")
+    execSync("cmake --build ." + (os.platform() != "win32" ? " -- -j" : ""), {stdio: 'inherit'})
     process.chdir(__dirname)
 }
 
@@ -719,7 +730,7 @@ function copyother(dirin, dirout){
     var dir = fs.readdirSync(dirin, {withFileTypes: true})
     if(dir.length > 0)
         dir.forEach(d => {
-            var add = '/'+d.name
+            var add = bar+d.name
             if(d.isDirectory()){
                 copyother(dirin + add, dirout + add)
             }else if(d.isFile()){
@@ -742,15 +753,16 @@ function _processProject(dirin, dirout, options){
     if(options.entry)
         entry = options.entry
     else{
-        var json = dirin+'/package.json'
+        var json = dirin+bar+'package.json'
         if(!fs.existsSync(json)) noentry_err();
         json = JSON.parse(fs.readFileSync(json))
         if(!json.main) noentry_err();
-        entry = dirin+'/'+json.main
+        entry = dirin+bar+json.main
     }
+    console.log("entry = "+entry)
 
-    registerPackages(dirin+"/node_modules","js",dirin)
-    registerPackages(dirin+"/nerd_modules","ng",dirin)
+    registerPackages(dirin+bar+"node_modules","js",dirin)
+    registerPackages(dirin+bar+"nerd_modules","ng",dirin)
 
     var env = [] // std packages regardless of options
 
@@ -809,7 +821,8 @@ function CLI(options){
                 case '--entry':
                     arg = args[++i];
                     if(!arg) doerror('Option --entry must accompany entry file path!');
-                    options.entry = arg;
+                    if(!fs.existsSync(arg)) doerror('Given entry does not exist!');
+                    options.entry = path.resolve(arg);
                     break;
                 default:
                     doerror("Unknown option: "+arg)
@@ -827,7 +840,8 @@ function CLI(options){
                 case '-E':
                     arg = args[++i];
                     if(!arg) doerror('Option -E must accompany entry file path!');
-                    options.entry = arg;
+                    if(!fs.existsSync(arg)) doerror('Given entry does not exist!');
+                    options.entry = path.resolve(arg);
                     break;
                 default:
                     doerror("Unknown option: "+arg)
@@ -836,7 +850,7 @@ function CLI(options){
             var stat = fs.statSync(arg)
             if(stat.isFile()){
                 dirin = path.dirname(arg)
-                options.entry = arg
+                options.entry = path.resolve(arg)
             }else if(stat.isDirectory()){
                 isdir = true;
                 dirin = arg;
@@ -845,9 +859,11 @@ function CLI(options){
             }
         }
     }
+
     if(!dirout)
-        dirout = ".nerd/projects/"+
-            crc32((isdir?path.basename:path.dirname)(dirin)).toString(16).toUpperCase();
+        dirout = ".nerd"+bar+"projects"+bar+
+            crc32(plat((isdir?path.basename:path.dirname)(dirin)))
+                .toString(16).toUpperCase();
 
     dirin = path.resolve(dirin)
     process.chdir(__dirname);

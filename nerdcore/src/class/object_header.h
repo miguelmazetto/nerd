@@ -26,7 +26,11 @@
 
 namespace NerdCore::Class
 {
+#ifdef _MSC_VER
+	class Object : public Base
+#else
 	class Object : public virtual Base
+#endif
 	{
 	public:
 		// Constructors

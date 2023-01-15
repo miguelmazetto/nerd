@@ -26,7 +26,11 @@
 
 namespace NerdCore::Class
 {
+#ifdef _MSC_VER
+	class Function : public Base
+#else
 	class Function : public virtual Base
+#endif
 	{
 	public:
 		// Constructors
@@ -64,7 +68,14 @@ namespace NerdCore::Class
 		template <class... Args>
 		NerdCore::VAR operator()(NerdCore::VAR __NERD_THIS, Args... args)
 		{
-			NerdCore::VAR _args[] = {args...};
+			#ifdef _MSC_VER
+			// MSVC does not support zero sized arrays
+			NerdCore::VAR _args_[] = { __NERD_THIS, args... };
+			NerdCore::VAR* _args = &_args_[1];
+			#else
+			NerdCore::VAR _args[] = { args... };
+			#endif
+
 			int i = sizeof...(args);
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
@@ -79,16 +90,23 @@ namespace NerdCore::Class
 			return (*static_cast<NerdCore::Type::function_t *>(value))(__NERD_THIS, _args, i);
 			#endif
 		}
-		
+
 		template <class... Args>
 		NerdCore::VAR New(NerdCore::VAR __NERD_THIS = NerdCore::Global::null, Args... args)
 		{
 			
-			NerdCore::VAR _args[] = {args...};
-			int i = sizeof...(args);
-			
 			NerdCore::VAR _this = new NerdCore::Class::Object();
-			NerdCore::VAR _return = this->Call(_this, _args, i);
+
+			#ifdef _MSC_VER
+			// MSVC does not support zero sized arrays
+			NerdCore::VAR _args_[] = { __NERD_THIS, args... };
+			NerdCore::VAR* _args = &_args_[1];
+			#else
+			NerdCore::VAR _args[] = { args... };
+			#endif
+
+			NerdCore::VAR _return = this->Call(_this, _args, sizeof...(args));
+
 			if(_return.type == NerdCore::Enum::Type::Object)
 			{
 				_this = _return;

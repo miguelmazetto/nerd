@@ -26,7 +26,11 @@
 
 namespace NerdCore::Class
 {
+#ifdef _MSC_VER
+	class Array : public Base
+#else
 	class Array : public virtual Base
+#endif
 	{
 	public:
 		// Constructors

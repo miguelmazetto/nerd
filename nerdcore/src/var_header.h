@@ -255,10 +255,10 @@ namespace NerdCore
 		operator bool();
 		explicit operator std::string() const;
 		operator std::string();
-		operator const char*() const;
+		explicit operator const char*() const;
 		operator long long();
 		explicit operator long long() const;
-		operator std::string_view() const;
+		explicit operator std::string_view() const;
 		
 	};
 
