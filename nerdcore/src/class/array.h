@@ -25,22 +25,24 @@
 #include "array_header.h"
 #include <sstream>
 #include <limits>
-		
+
+using namespace NerdCore::Global;
+
 namespace NerdCore::Class
 {
 	// Constructors
 	Array::Array() 
 	{ 
-		object["__proto__"] = NerdCore::Global::Array["prototype"];
+		object[N::__proto__] = NerdCore::Global::Array[N::prototype];
 	}
 	Array::Array(NerdCore::Type::vector_t vec)
 	{
-		object["__proto__"] = NerdCore::Global::Array["prototype"];
+		object[N::__proto__] = NerdCore::Global::Array[N::prototype];
 		value = vec;
 	}
 	Array::Array(std::initializer_list<NerdCore::VAR> l) : value(l)
 	{
-		object["__proto__"] = NerdCore::Global::Array["prototype"];
+		object[N::__proto__] = NerdCore::Global::Array[N::prototype];
 	}
 	
 	// Methods
@@ -171,6 +173,48 @@ namespace NerdCore::Class
 		return object[object.size() - 1].second;
 		#endif
 	}
+
+	NerdCore::VAR &Array::GetSet(Type::HashedString key)
+	{
+		#ifndef __NERD__OBJECT_VECTOR
+		// if current object[key] is null, we look for the prototypal chain
+		var& prop = object[key];
+		if(prop.type == Enum::Null)
+		{
+			var __proto = object[N::__proto__];
+			while(__proto.type != Enum::Null)
+			{
+				var& tryprop = __proto[key];
+				if(tryprop.type != Enum::Null)
+				{
+					prop = tryprop;
+					break;
+				}
+				__proto = __proto[N::__proto__];
+			}
+		}
+		/*
+		if(object[key].type == NerdCore::Enum::Type::Function)
+		{
+			(__NERD_FUNCTION(object[key]))->object["this"] = NerdCore::VAR(this);
+			__NERD_FUNCTION(object[key])->bind = bind;
+		}
+		*/
+		return prop;
+		#else
+		for (auto & search : object)
+		{
+			if (key.compare(search.first) == 0)
+			{
+				return search.second;
+			}
+		}
+
+		object.push_back(NerdCore::Type::pair_t(key, NerdCore::Global::null));
+
+		return object[object.size() - 1].second;
+		#endif
+	}
 	
 	// Main operators
 	NerdCore::VAR const Array::operator[](int key) const
@@ -242,6 +286,11 @@ namespace NerdCore::Class
 	}
 	
 	NerdCore::VAR &Array::operator[](const char* key)
+	{		
+		return GetSet(key);
+	}
+
+	NerdCore::VAR &Array::operator[](NerdCore::Type::HashedString key)
 	{		
 		return GetSet(key);
 	}

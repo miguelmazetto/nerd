@@ -1,0 +1,16 @@
+include("<chrono>");
+{{
+    using namespace std::chrono;
+    auto start = high_resolution_clock::now();
+}}
+var _perf_hooks = {};
+
+_perf_hooks.performance = {};
+
+_perf_hooks.performance.now = function(){
+    {{
+        return ((duration<double, std::milli>)(high_resolution_clock::now() - start)).count();
+    }}
+}
+
+return _perf_hooks;

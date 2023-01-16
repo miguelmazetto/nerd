@@ -318,6 +318,25 @@ namespace NerdCore
 		}
 		return (*(NerdCore::Class::Base*)data.ptr)[_index];
 	}
+
+	VAR& VAR::operator[] (NerdCore::Type::HashedString _index)
+	{
+		if (type < NerdCore::Enum::Type::String) return NerdCore::Global::null;
+		if (_index.str == std::string_view("length"))
+		{
+			if (type == NerdCore::Enum::Type::Array)
+			{
+				((NerdCore::Class::Array*)data.ptr)->length = ((NerdCore::Class::Array*)data.ptr)->value.size();
+				return ((NerdCore::Class::Array*)data.ptr)->length;
+			}
+			else if (type == NerdCore::Enum::Type::String)
+			{
+				((NerdCore::Class::String*)data.ptr)->length = ((NerdCore::Class::String*)data.ptr)->value.length();
+				return ((NerdCore::Class::String*)data.ptr)->length;
+			}
+		}
+		return (*(NerdCore::Class::Base*)data.ptr)[_index];
+	}
 	
 	/* END ACCESS OVERLOAD */
 

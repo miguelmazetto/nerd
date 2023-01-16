@@ -207,7 +207,7 @@ namespace NerdCore::Class
 		return String::GetSet(key);
 	}
 
-	NerdCore::VAR &String::operator[](const char* key)
+	NerdCore::VAR &String::operator[](NerdCore::Type::HashedString key)
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain

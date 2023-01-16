@@ -147,12 +147,12 @@ namespace NerdCore::Class
 	}
 	
 	
-	NerdCore::VAR &Struct::operator[](const char* key)
+	NerdCore::VAR &Struct::operator[](NerdCore::Type::HashedString key)
 	{
-		std::string str = key;
 		#ifndef __NERD__OBJECT_VECTOR
-		return object[str];
+		return object[key];
 		#else
+		std::string str = key;
 		for (auto & search : object)
 		{
 			if (str.compare(search.first) == 0)

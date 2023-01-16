@@ -322,6 +322,16 @@ class robin_map {
   }
 
   template <class... Args>
+  std::pair<iterator, bool> try_emplace(const key_type& k, std::size_t hash, Args&&... args) {
+      return m_ht.try_emplace(k, hash, std::forward<Args>(args)...);
+  }
+
+  template <class... Args>
+  std::pair<iterator, bool> try_emplace(key_type&& k, std::size_t hash, Args&&... args) {
+      return m_ht.try_emplace(std::move(k), hash, std::forward<Args>(args)...);
+  }
+
+  template <class... Args>
   iterator try_emplace(const_iterator hint, const key_type& k, Args&&... args) {
     return m_ht.try_emplace_hint(hint, k, std::forward<Args>(args)...);
   }

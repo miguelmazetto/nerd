@@ -183,12 +183,10 @@ namespace NerdCore::Class
 	#ifndef __NERD__OBJECT_VECTOR
 	NerdCore::VAR &Function::operator[](const char* key)
 	{
-		/*
-		if(hasLazy && LazyRTM.count(key) && !object.count(key))
-		{
-			object[key] = LazyRTM[key];
-		}
-		*/
+		return object[key];
+	}
+	NerdCore::VAR &Function::operator[](NerdCore::Type::HashedString key)
+	{
 		return object[key];
 	}
 	#else

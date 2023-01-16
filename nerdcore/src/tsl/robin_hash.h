@@ -813,6 +813,13 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
   }
 
   template <class K, class... Args>
+  std::pair<iterator, bool> try_emplace(K&& key, std::size_t hash, Args&&... args) {
+      return insert_impl(key, hash, std::piecewise_construct,
+          std::forward_as_tuple(std::forward<K>(key)),
+          std::forward_as_tuple(std::forward<Args>(args)...));
+  }
+
+  template <class K, class... Args>
   iterator try_emplace_hint(const_iterator hint, K&& key, Args&&... args) {
     if (hint != cend() && compare_keys(KeySelect()(*hint), key)) {
       return mutable_iterator(hint);
@@ -1261,6 +1268,55 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
      * empty or by stealing the bucket (robin hood).
      */
     return std::make_pair(iterator(m_buckets + ibucket), true);
+  }
+
+  template <class K, class... Args>
+  std::pair<iterator, bool> insert_impl(const K& key, std::size_t hash,
+      Args&&... value_type_args) {
+
+      std::size_t ibucket = bucket_for_hash(hash);
+      distance_type dist_from_ideal_bucket = 0;
+
+      while (dist_from_ideal_bucket <=
+          m_buckets[ibucket].dist_from_ideal_bucket()) {
+          if ((!USE_STORED_HASH_ON_LOOKUP ||
+              m_buckets[ibucket].bucket_hash_equal(hash)) &&
+              compare_keys(KeySelect()(m_buckets[ibucket].value()), key)) {
+              return std::make_pair(iterator(m_buckets + ibucket), false);
+          }
+
+          ibucket = next_bucket(ibucket);
+          dist_from_ideal_bucket++;
+      }
+
+      if (rehash_on_extreme_load()) {
+          ibucket = bucket_for_hash(hash);
+          dist_from_ideal_bucket = 0;
+
+          while (dist_from_ideal_bucket <=
+              m_buckets[ibucket].dist_from_ideal_bucket()) {
+              ibucket = next_bucket(ibucket);
+              dist_from_ideal_bucket++;
+          }
+      }
+
+      if (m_buckets[ibucket].empty()) {
+          m_buckets[ibucket].set_value_of_empty_bucket(
+              dist_from_ideal_bucket, bucket_entry::truncate_hash(hash),
+              std::forward<Args>(value_type_args)...);
+      }
+      else {
+          insert_value(ibucket, dist_from_ideal_bucket,
+              bucket_entry::truncate_hash(hash),
+              std::forward<Args>(value_type_args)...);
+      }
+
+      m_nb_elements++;
+      /*
+       * The value will be inserted in ibucket in any case, either because it was
+       * empty or by stealing the bucket (robin hood).
+       */
+      return std::make_pair(iterator(m_buckets + ibucket), true);
   }
 
   template <class... Args>

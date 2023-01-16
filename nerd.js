@@ -54,7 +54,7 @@ class NerdLangParser extends acorn.Parser {
 }
 
 function getAST(code){
-    return NerdLangParser.parse(code, {ecmaVersion: 6, allowReturnOutsideFunction: true})
+    return NerdLangParser.parse(code, {ecmaVersion: 7, allowReturnOutsideFunction: true})
 }
 
 function genArray(arr, tab, ctx){
@@ -102,6 +102,17 @@ function generateCode(AST, tab, ctx){
     }
     return ret
 }
+
+var globalkeys = {prototype:true, exports:true}
+
+//C++ Precedence
+var operatorprecedence = [
+    '%','/','*','-','+','>>','<<','>=','>','<=','<','!=','==','&',
+    '^','|','&&','||','=','+=','-=','*=','/=','%=','<<=','>>=','&=','^=',
+    '|='
+]
+
+// a + b - c
 
 function _generateCode(AST, tab, ctx){
     if(!AST) return ""
@@ -183,10 +194,13 @@ function _generateCode(AST, tab, ctx){
             return callee + "(" + genArray(AST.arguments, tab, ctx).join(", ") + ")"
 
         case 'MemberExpression':
+            if(!AST.computed)
+                globalkeys[AST.property.name] = true;
+
             return generateCode(AST.object, tab, ctx) + "[" +
                     (AST.computed ?
                         generateCode(AST.property, tab, ctx) :
-                        tostr(AST.property.name))+"]"
+                        "N::"+AST.property.name)+"]"
 
         case 'Identifier':
             if(ctx.stack[1].type != 'MemberExpression'){
@@ -201,12 +215,26 @@ function _generateCode(AST, tab, ctx){
         case 'LogicalExpression':
         case 'BinaryExpression':
             var bf = '', aft ='';
+            var lbf = '', laft = '';
+            
+            if(AST.left.type == 'BinaryExpression' || 
+               AST.left.type == 'LogicalExpression' ||
+               AST.left.type == 'AssignmentExpression'){
+
+                var selfprec = operatorprecedence.indexOf(AST.operator)
+                var leftprec = operatorprecedence.indexOf(AST.left.operator)
+                if(selfprec == -1 || leftprec == -1){ console.log("prec error", AST); exit(1) }
+                if(leftprec >= selfprec){
+                    lbf = '('; laft = ')'
+                }
+            }
+
             switch(AST.operator){
                 // Simple operators, are the same in js and cpp
                 case '=':
-                    if(ctx.stack[1].type != 'ExpressionStatement'){
-                        bf='('; aft=', '+generateCode(AST.left, tab, ctx)+')'
-                    }
+                    //if(ctx.stack[1].type != 'ExpressionStatement'){
+                    //    bf='('; aft=', '+generateCode(AST.left, tab, ctx)+')'
+                    //}
                 case '+': case '-':
                 case '*': case '/': case '%':
                 case '<': case '<=':
@@ -215,7 +243,11 @@ function _generateCode(AST, tab, ctx){
                 case '&&': case '||':
                 case '+=': case '-=':
                 case '*=': case '/=': 
-                    return bf+generateCode(AST.left, tab, ctx) +
+                    //if(AST.operator == '/'){
+                    //    console.log(ctx.stack)
+                    //    exit(0);
+                    //}
+                    return bf+lbf+generateCode(AST.left, tab, ctx)+laft +
                            " " + AST.operator + " " +
                            generateCode(AST.right, tab, ctx)+aft
 
@@ -233,6 +265,11 @@ function _generateCode(AST, tab, ctx){
                     return "__NERD_INSTANCEOF(" +
                            generateCode(AST.left, tab, ctx) + ', ' +
                            generateCode(AST.right, tab, ctx) + ')';
+                
+                case '**':
+                    return "pow(" +
+                            generateCode(AST.left, tab, ctx) + ', ' +
+                            generateCode(AST.right, tab, ctx) + ')';
                 
                 default:
                     console.log("Unknown operator:", AST.operator, AST)
@@ -486,7 +523,7 @@ function generateFile(AST, fout, outroot, options){
     cpp += '\nvar __MODULE_'+options.module_name+'_main() {\n'
     cpp += '\t__NERD_INIT_MODULE('+tostr(options.module_path)+');\n'
     cpp += gencode
-    cpp += '\treturn module["exports"];\n'
+    cpp += '\treturn module[N::exports];\n'
     cpp += '}'
 
     return cpp
@@ -622,6 +659,16 @@ function processExports(dirout, env){
            env_c.substring(0, env_c.length-3)].join("\n\n")+
            '\n\n#define __NERD_EXPORTED\n'+
            '#include <nerdcore/src/nerd.hpp>\n'
+
+    out += "namespace NerdCore::Global::N\n{\n"
+    out += "\tusing hkey = NerdCore::Type::HashedString;\n"
+    out += '\tconstexpr hkey __proto__ = hkey("__proto__",0);\n'
+    out += '\tconstexpr hkey __this__ = hkey("this",0);\n'
+    for (const key in globalkeys) {
+        if(key == "this") continue;
+        out += '\tconstexpr hkey '+key+' = hkey("'+key+'",0);\n'
+    }
+    out += "}\n"
 
     fs.writeFileSync(dirout + bar + "nerd_exports.hpp", out)
 }

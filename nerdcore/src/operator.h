@@ -549,14 +549,14 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 		int _comma = 0;
 		for (auto _el: *_obj)
 		{
-			if(_el.second.type != NerdCore::Enum::Type::Null/* && _el.first != "__proto__" && _el.first != "prototype"*/)
-			{
+			//if(_el.second.type != NerdCore::Enum::Type::Null/* && _el.first != "__proto__" && _el.first != "prototype"*/)
+			//{
 				if (_comma > 0) _res += ", ";
 				_res += NerdCore::VAR("\"") + _el.first + "\"";
 				_res += ":";
 				_res += __NERD_Object_Stringify(_el.second);
 				_comma++;
-			}
+			//}
 			_i++;
 		}
 		#else

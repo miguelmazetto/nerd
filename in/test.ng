@@ -1,11 +1,28 @@
-var http = require('http');
+var perf_hooks = require("perf_hooks");
 
-http.createServer(function (req, res) {
-  console.log("received!",undefined)
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  console.log("wrote head!")
-  res.write('Hello World!');
-  console.log("wrote Hello")
-  res.end();
-  console.log("ended")
-}).listen(8080);
+var bfore, after;
+var subject = {}
+
+function benchsample(n){
+  console.log("\nstart",n,"samples");
+  var now = perf_hooks.performance.now;
+
+  bfore = now();
+
+  for (var i = 0; i < n; i++) {
+    subject.benchmark = true;
+  }
+
+  after = now();
+
+  console.log("diff:",after-bfore,"ms");
+  console.log("per sample:",(after-bfore)/n,"ms");
+  console.log("per sec:",1000/((after-bfore)/n),"acc/s")
+  return after-bfore;
+}
+
+for (let samplesize = 0; samplesize < 10; samplesize++) {
+  var ss = 10**samplesize;
+  var t = benchsample(ss);
+  if(t > 1000000000) break; // stop if reaches 1 sec
+}

@@ -205,10 +205,10 @@ namespace NerdCore::Class
 		return value[(int)key];
 	}
 	
-	NerdCore::VAR &FixedArray::operator[](const char* key)
-	{		
-		return NerdCore::Global::null;
-	}
+	//NerdCore::VAR &FixedArray::operator[](const char* key)
+	//{		
+	//	return NerdCore::Global::null;
+	//}
 	
 	// Comparation operators
 	FixedArray FixedArray::operator!() const 

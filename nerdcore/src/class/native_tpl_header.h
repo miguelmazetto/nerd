@@ -138,32 +138,6 @@ namespace NerdCore::Class
 			return std::string("[native ") +  type +  std::string("]");
 		}
 		
-		// Main operators
-		NerdCore::VAR const operator[](NerdCore::VAR key) const
-		{
-			return NerdCore::Global::null;
-		}
-		NerdCore::VAR &operator[](NerdCore::VAR key)
-		{
-			return NerdCore::Global::null;
-		}
-		
-		NerdCore::VAR &operator[](int key)
-		{
-			return NerdCore::Global::null;
-		}
-		
-		NerdCore::VAR &operator[](double key)
-		{
-			return NerdCore::Global::null;
-		}
-		
-		
-		NerdCore::VAR &operator[](const char* key)
-		{
-			return NerdCore::Global::null;
-		}
-		
 		// Comparation operators
 		NativeTPL operator!() const 
 		{

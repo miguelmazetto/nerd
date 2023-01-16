@@ -57,7 +57,7 @@ namespace NerdCore::Class
 		NerdCore::VAR &operator[](NerdCore::VAR key);
 		NerdCore::VAR &operator[](int key);
 		NerdCore::VAR &operator[](double key);
-		NerdCore::VAR &operator[](const char* key);
+		//NerdCore::VAR &operator[](NerdCore::Type::HashedString key);
 
 		// Comparation operators
 		FixedArray operator!() const;

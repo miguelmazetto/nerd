@@ -90,67 +90,30 @@
 		{"path", __dirname} \
 	});
 
-//#define __NERD_REQUIRE_STDLIB() \
-//	var console = require(module, "console"); \
-//	var JSON = require(module, "JSON"); \
-//	var RegExp = require(module, "RegExp"); \
-//	var Math = require(module, "Math");
-
-
-/*
-void nextiteration(NerdCore::VAR obj, NerdCore::Type::function_t func){
-	if (obj.type == NerdCore::Enum::Type::Object) {
-      for (auto __NERD_ITERATOR = ((NerdCore::Class::Object * ) obj.data.ptr) -> object.begin();
-	  		__NERD_ITERATOR != ((NerdCore::Class::Object * ) obj.data.ptr) -> object.end();
-			++__NERD_ITERATOR) {
-
-        if (__NERD_ITERATOR->first.compare("__proto__") != 0) {
-          if(func(null, __NERD_ITERATOR->first) == (NerdCore::VAR)true)
-		  	break;
-        }
-      }
-    } else if (obj.type == NerdCore::Enum::Type::Array) {
-      for (std::size_t __NERD_ITERATOR = 0;
-	  		__NERD_ITERATOR < ((NerdCore::Class::Array * );
-			obj.data.ptr)->value.size(); __NERD_ITERATOR++) {
-
-        if(func(null, __NERD_ITERATOR) == (NerdCore::VAR)true)
-		  	break;
-      }
-    } else if (obj.type == NerdCore::Enum::Type::String) {
-      for (std::size_t __NERD_ITERATOR = 0;
-	  		__NERD_ITERATOR < ((NerdCore::Class::String * ) obj.data.ptr)->value.length();
-			__NERD_ITERATOR++) {
-
-        if(func(null, __NERD_ITERATOR) == (NerdCore::VAR)true)
-		  	break;
-      }
-    }
+#define __NERD_STATIC_HASH(str) std::hash<std::string>()(str)
+constexpr bool __NERD_STATIC_STREQUAL(char const* lhs, char const* rhs)
+{
+	while (*lhs || *rhs)
+		if (*lhs++ != *rhs++)
+			return false;
+	return true;
 }
 
-#define __NERD_FORINLOOP_NODECL(_id, _var, _obj, __CONTENT__) \
-	var __NERD_IT_FUNC_ ## _id = __NERD_Create_Var_Scoped_Copy_Anon_With_Ref(__NERD_IT_FUNC_ ## _id, {\
-		if (__NERD_VARLENGTH > 0) _var = __NERD_VARARGS[0];\
-		__CONTENT__;\
-        if (_obj.type == NerdCore::Enum::Type::Object) {\
-			\
-          for (auto __NERD_ITERATOR = ((NerdCore::Class::Object * ) _obj.data.ptr) -> object.begin();\
-		  	__NERD_ITERATOR != ((NerdCore::Class::Object * ) _obj.data.ptr) -> object.end(); ++__NERD_ITERATOR) {\
-				\
-            if (__NERD_ITERATOR->first.compare("__proto__") != 0) {\
-              var i = __NERD_ITERATOR->first;\
-              __NERD_IT_FUNC_ ## _id (null, i);\
-            }\
-          }\
-        } else if (_obj.type == NerdCore::Enum::Type::Array) {\
-          for (std::size_t __NERD_ITERATOR = 0; __NERD_ITERATOR < ((NerdCore::Class::Array * ) obj.data.ptr) -> value.size(); __NERD_ITERATOR++) {
-            __NERD_IT_FUNC_6taw4vun83(null, __NERD_ITERATOR);
-          }
-        } else if (obj.type == NerdCore::Enum::Type::String) {
-          for (std::size_t __NERD_ITERATOR = 0; __NERD_ITERATOR < ((NerdCore::Class::String * ) obj.data.ptr) -> value.length(); __NERD_ITERATOR++) {
-            var i = __NERD_ITERATOR;
-            __NERD_IT_FUNC_6taw4vun83(null, i);
-          }
-        }
+#define __NERD_PROTO_LOOKUP() \
+	if(prop.type == NerdCore::Enum::Type::Null) \
+	{ \
+		NerdCore::VAR __proto = object["__proto__"]; \
+		while(__proto.type != NerdCore::Enum::Type::Null) \
+		{ \
+				if(__proto[key].type != NerdCore::Enum::Type::Null) \
+				{ \
+					prop = __proto[key]; \
+					break; \
+				} \
+				__proto = __proto["__proto__"]; \
+		} \
 	}
-*/
+
+#define __NERD_VAR_GETHASHED(_var,prop) ((NerdCore::Class::Base*)(_var).data.ptr)->GetHashed(prop, __NERD_STATIC_HASH(prop))
+
+//#define __NERD_HASH(str) std::hash<std::string>()(str)

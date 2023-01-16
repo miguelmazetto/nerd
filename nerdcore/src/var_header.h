@@ -155,6 +155,7 @@ namespace NerdCore
 		VAR & operator[] (size_t _index);
 		VAR & operator[] (double _index);
 		VAR & operator[] (const char* _index);
+		VAR & operator[] (NerdCore::Type::HashedString _index);
 		/* END ACCESS OVERLOAD */
 
 		/*** END CONSTRUCTOR ***/
