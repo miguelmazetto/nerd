@@ -132,22 +132,23 @@ namespace NerdCore::Class
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain
-		var& prop = object[key];
-		if (prop.type == Enum::Null)
+		var* prop = &object[key];
+		if (prop->type == Enum::Null)
 		{
 			var __proto = object[N::__proto__];
+			var tryprop;
 			while (__proto.type != Enum::Null)
 			{
-				var& tryprop = __proto[key];
+				tryprop = __proto[key];
 				if (tryprop.type != Enum::Null)
 				{
 					if (tryprop.type == Enum::Function) {
-						prop = var(new Class::Function(
+						*prop = var(new Class::Function(
 							((Class::Function*)tryprop.data.ptr)->value,
 							this));
 					}
 					else {
-						prop = tryprop;
+						*prop = tryprop;
 					}
 					break;
 				}
@@ -177,25 +178,26 @@ namespace NerdCore::Class
 		#endif
 	}
 
-	NerdCore::VAR &Object::GetSet(Type::HashedString key)
+	NerdCore::VAR &Object::GetSet(const Type::HashedString& key)
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain
-		var& prop = object[key];
-		if(prop.type == Enum::Null)
+		var* prop = &object[key];
+		if(prop->type == Enum::Null)
 		{
 			var __proto = object[N::__proto__];
+			var tryprop;
 			while(__proto.type != Enum::Null)
 			{
-				var& tryprop = __proto[key];
+				tryprop = __proto[key];
 				if(tryprop.type != Enum::Null)
 				{
 					if(tryprop.type == Enum::Function){
-						prop = var(new Class::Function(
+						*prop = var(new Class::Function(
 							((Class::Function*)tryprop.data.ptr)->value,
 							this));
 					}else{
-						prop = tryprop;
+						*prop = tryprop;
 					}
 					break;
 				}
@@ -248,7 +250,7 @@ namespace NerdCore::Class
 		return Object::GetSet(key);
 	}
 	
-	NerdCore::VAR &Object::operator[](NerdCore::Type::HashedString key)
+	NerdCore::VAR &Object::operator[](const NerdCore::Type::HashedString& key)
 	{
 		return Object::GetSet(key);
 	}

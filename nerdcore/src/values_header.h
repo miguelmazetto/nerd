@@ -41,6 +41,13 @@ namespace NerdCore::Global
 	extern NerdCore::VAR __NERD_ARGS;
 	extern NerdCore::VAR require;
 	__NERD_STDENV_H()
+
+	namespace H {
+		using hkey = NerdCore::Type::HashedString;
+		std::size_t hash(std::string_view str);
+	}
+	namespace Type { using namespace NerdCore::Enum; }
+	using namespace NerdCore;
 }
 
 void __NERD_INIT_VALUES(int argc, char** argv);

@@ -216,6 +216,7 @@ function _generateCode(AST, tab, ctx){
         case 'BinaryExpression':
             var bf = '', aft ='';
             var lbf = '', laft = '';
+            var rbf = '', raft = '';
             
             if(AST.left.type == 'BinaryExpression' || 
                AST.left.type == 'LogicalExpression' ||
@@ -223,9 +224,21 @@ function _generateCode(AST, tab, ctx){
 
                 var selfprec = operatorprecedence.indexOf(AST.operator)
                 var leftprec = operatorprecedence.indexOf(AST.left.operator)
-                if(selfprec == -1 || leftprec == -1){ console.log("prec error", AST); exit(1) }
+                if(selfprec == -1 || leftprec == -1) throw "Operator precedence error!";
                 if(leftprec >= selfprec){
                     lbf = '('; laft = ')'
+                }
+            }
+
+            if(AST.right.type == 'BinaryExpression' || 
+               AST.right.type == 'LogicalExpression' ||
+               AST.right.type == 'AssignmentExpression'){
+
+                var selfprec = operatorprecedence.indexOf(AST.operator)
+                var rightprec = operatorprecedence.indexOf(AST.right.operator)
+                if(selfprec == -1 || rightprec == -1) throw "Operator precedence error!";
+                if(rightprec >= selfprec){
+                    rbf = '('; raft = ')'
                 }
             }
 
@@ -247,9 +260,9 @@ function _generateCode(AST, tab, ctx){
                     //    console.log(ctx.stack)
                     //    exit(0);
                     //}
-                    return bf+lbf+generateCode(AST.left, tab, ctx)+laft +
-                           " " + AST.operator + " " +
-                           generateCode(AST.right, tab, ctx)+aft
+                    return bf+lbf+generateCode(AST.left, tab, ctx)+laft+
+                           " " + AST.operator + " " +rbf+
+                           generateCode(AST.right, tab, ctx)+raft+aft
 
                 case '===':
                     return "__NERD_EQUAL_VALUE_AND_TYPE(" +
@@ -660,13 +673,13 @@ function processExports(dirout, env){
            '\n\n#define __NERD_EXPORTED\n'+
            '#include <nerdcore/src/nerd.hpp>\n'
 
+    out += "using namespace NerdCore::Global;\n"
     out += "namespace NerdCore::Global::N\n{\n"
-    out += "\tusing hkey = NerdCore::Type::HashedString;\n"
-    out += '\tconstexpr hkey __proto__ = hkey("__proto__",0);\n'
-    out += '\tconstexpr hkey __this__ = hkey("this",0);\n'
+    out += '\tconst H::hkey __proto__ = H::hkey{"__proto__", H::hash("__proto__")};\n'
+    out += '\tconst H::hkey __this__ = H::hkey{"this", H::hash("this")};\n'
     for (const key in globalkeys) {
         if(key == "this") continue;
-        out += '\tconstexpr hkey '+key+' = hkey("'+key+'",0);\n'
+        out += '\tconst H::hkey '+key+' = H::hkey{"'+key+'", H::hash("'+key+'")};\n'
     }
     out += "}\n"
 

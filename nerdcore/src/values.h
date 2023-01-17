@@ -37,15 +37,14 @@ namespace NerdCore::Global
 	NerdCore::VAR global = new NerdCore::Class::Object();
 	NerdCore::VAR __NERD_THIS = global;
 	NerdCore::VAR __NERD_ARGS = new NerdCore::Class::Array();
-	namespace H {
-		var& Null = NerdCore::Global::null;
-		var& True = NerdCore::Global::__True;
-		var& False = NerdCore::Global::__False;
-	}
-	namespace Type { using namespace NerdCore::Enum; }
-	using namespace NerdCore;
 	NerdCore::VAR require;
 	__NERD_STDENV_C();
+
+	namespace H {
+		std::size_t hash(std::string_view str) {
+			return ankerl::unordered_dense::hash<std::string_view>()(str);
+		}
+	}
 }
 
 using namespace NerdCore::Global;

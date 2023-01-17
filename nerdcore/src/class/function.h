@@ -185,7 +185,7 @@ namespace NerdCore::Class
 	{
 		return object[key];
 	}
-	NerdCore::VAR &Function::operator[](NerdCore::Type::HashedString key)
+	NerdCore::VAR &Function::operator[](const NerdCore::Type::HashedString& key)
 	{
 		return object[key];
 	}

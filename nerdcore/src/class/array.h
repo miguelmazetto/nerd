@@ -174,20 +174,20 @@ namespace NerdCore::Class
 		#endif
 	}
 
-	NerdCore::VAR &Array::GetSet(Type::HashedString key)
+	NerdCore::VAR &Array::GetSet(const Type::HashedString& key)
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain
-		var& prop = object[key];
-		if(prop.type == Enum::Null)
+		var* prop = &object[key];
+		if(prop->type == Enum::Null)
 		{
 			var __proto = object[N::__proto__];
 			while(__proto.type != Enum::Null)
 			{
-				var& tryprop = __proto[key];
-				if(tryprop.type != Enum::Null)
+				var* tryprop = &__proto[key];
+				if(tryprop->type != Enum::Null)
 				{
-					prop = tryprop;
+					*prop = *tryprop;
 					break;
 				}
 				__proto = __proto[N::__proto__];
@@ -200,7 +200,7 @@ namespace NerdCore::Class
 			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return prop;
+		return *prop;
 		#else
 		for (auto & search : object)
 		{
@@ -290,7 +290,7 @@ namespace NerdCore::Class
 		return GetSet(key);
 	}
 
-	NerdCore::VAR &Array::operator[](NerdCore::Type::HashedString key)
+	NerdCore::VAR &Array::operator[](const NerdCore::Type::HashedString& key)
 	{		
 		return GetSet(key);
 	}

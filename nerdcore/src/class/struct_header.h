@@ -57,7 +57,7 @@ namespace NerdCore::Class
 		NerdCore::VAR &operator[](NerdCore::VAR key);
 		NerdCore::VAR &operator[](int key);
 		NerdCore::VAR &operator[](double key);
-		NerdCore::VAR &operator[](NerdCore::Type::HashedString key);
+		NerdCore::VAR &operator[](const NerdCore::Type::HashedString& key);
 		
 		template <class... Args>
 		NerdCore::VAR operator()(Args... args) const

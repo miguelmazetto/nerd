@@ -147,7 +147,7 @@ namespace NerdCore::Class
 	}
 	
 	
-	NerdCore::VAR &Struct::operator[](NerdCore::Type::HashedString key)
+	NerdCore::VAR &Struct::operator[](const NerdCore::Type::HashedString& key)
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		return object[key];

@@ -44,6 +44,6 @@ namespace NerdCore::Class
 		virtual NerdCore::VAR &operator[](size_t key){ return NerdCore::Global::null; };
 		virtual NerdCore::VAR &operator[](double key){ return NerdCore::Global::null; };
 		virtual NerdCore::VAR &operator[](const char* key){ return NerdCore::Global::null; };
-		virtual NerdCore::VAR &operator[](NerdCore::Type::HashedString key){ return NerdCore::Global::null; };
+		virtual NerdCore::VAR &operator[](const NerdCore::Type::HashedString& key){ return NerdCore::Global::null; };
 	};
 }

@@ -22,86 +22,41 @@
 */
 
 #ifndef __NERD__OBJECT_VECTOR
-#include "tsl/robin_map.h"
+#include "map/unordered_dense.h"
+#include "map/robin_hood.h"
 #endif
-
-template <typename String>
-struct hash_string {
-	constexpr std::size_t operator()(const String& value) const {
-		std::size_t d = 5381;
-		for (const auto& c : value)
-			d = d * 33 + static_cast<size_t>(c);
-		return d;
-	}
-};
 
 namespace NerdCore
 {
 	namespace Type
 	{
+
 		typedef std::vector<NerdCore::VAR> vector_t;
 		typedef std::vector<void*> vector_p;
 		typedef std::pair<std::string, NerdCore::VAR> pair_t;
 		#ifndef __NERD__OBJECT_VECTOR
-		//typedef tsl::robin_map<std::string, NerdCore::VAR> object_t;
 
 		//TODO: organize
 		struct HashedString {
-			std::string_view str;
-			std::size_t hash = 0;
-
-			constexpr HashedString(const char* s, int Null) {
-				hash = hash_string<std::string_view>()(s);
-				str = s;
-			}
-
-			//HashedString(const char* s) {
-			//	hash = std::hash<std::string>()(s);
-			//	//std::cout << "cto " << s << "\n";
-			//	str = s;
-			//	//std::cout << "ctores " << str << "\n";
-			//}
-			//HashedString(std::string s) {
-			//	hash = hash_string<std::string>()(s);
-			//	str = s;
-			//}
-			//HashedString(std::string_view s) {
-			//	str = s;
-			//}
-
-			//operator std::string_view& () { return str; }
+			std::string str;
+			std::size_t hash;
 		};
 
-		template <class Key, class T, class Hash = std::hash<Key>,
-          class KeyEqual = std::equal_to<Key>,
-          class Allocator = std::allocator<std::pair<Key, T>>,
-          bool StoreHash = false,
-          class GrowthPolicy = tsl::rh::power_of_two_growth_policy<2>>
-
-		class _object_t : public tsl::robin_map
-			<Key, T, Hash, KeyEqual, Allocator, StoreHash, GrowthPolicy>
+		template <class Key, class T, class Hash>
+		class _object_t : public robin_hood::unordered_flat_map<Key, T, Hash>
 		{
-			public:
-			inline T& operator[](const Key& key){
-				//std::cout << "const str " << key << "\n";
-				return tsl::robin_map
-				<Key, T, Hash, KeyEqual, Allocator, StoreHash, GrowthPolicy>
-				::operator[](key);
+		public:
+			inline T& operator[](const Key& key) {
+				return robin_hood::unordered_flat_map<Key, T, Hash>::operator[](key);
 			}
-			inline T& operator[](Key&& key){
-				//std::cout << "str " << key << "\n";
-				return tsl::robin_map
-				<Key, T, Hash, KeyEqual, Allocator, StoreHash, GrowthPolicy>
-				::operator[](key);
+			inline T& operator[](Key&& key) {
+				return robin_hood::unordered_flat_map<Key, T, Hash>::operator[](key);
 			}
-			inline T& operator[](NerdCore::Type::HashedString _index) {
-				//std::cout << "hstr " << std::string(_index.str) << "\n";
-				return this->try_emplace(std::forward<Key>(std::string(_index.str)),
-					_index.hash).first.value();
+			inline T& operator[](const NerdCore::Type::HashedString& _index) {
+				return robin_hood::unordered_flat_map<Key, T, Hash>::GetHashed(_index.str, _index.hash);
 			}
 		};
-
-		typedef _object_t<std::string, NerdCore::VAR, hash_string<std::string>> object_t;
+		typedef _object_t<std::string, NerdCore::VAR, ankerl::unordered_dense::hash<std::string>> object_t;
 		#else
 		typedef std::vector<pair_t> object_t;
 		#endif

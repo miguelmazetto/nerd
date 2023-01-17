@@ -319,7 +319,7 @@ namespace NerdCore
 		return (*(NerdCore::Class::Base*)data.ptr)[_index];
 	}
 
-	VAR& VAR::operator[] (NerdCore::Type::HashedString _index)
+	VAR& VAR::operator[] (const NerdCore::Type::HashedString& _index)
 	{
 		if (type < NerdCore::Enum::Type::String) return NerdCore::Global::null;
 		if (_index.str == std::string_view("length"))
