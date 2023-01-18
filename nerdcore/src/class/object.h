@@ -136,20 +136,14 @@ namespace NerdCore::Class
 		if (prop->type == Enum::Null)
 		{
 			var __proto = object[N::__proto__];
-			var tryprop;
 			while (__proto.type != Enum::Null)
 			{
-				tryprop = __proto[key];
-				if (tryprop.type != Enum::Null)
+				var* tryprop = &__proto[key];
+				if(tryprop->type != Enum::Null)
 				{
-					if (tryprop.type == Enum::Function) {
-						*prop = var(new Class::Function(
-							((Class::Function*)tryprop.data.ptr)->value,
-							this));
-					}
-					else {
-						*prop = tryprop;
-					}
+					*prop = *tryprop;
+					if (tryprop->type == Enum::Function)
+						(*prop)[N::__this__] = this;
 					break;
 				}
 				__proto = __proto[N::__proto__];
@@ -162,7 +156,7 @@ namespace NerdCore::Class
 			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return object[key];
+		return *prop;
 		#else
 		for (auto& search : object)
 		{
@@ -186,19 +180,14 @@ namespace NerdCore::Class
 		if(prop->type == Enum::Null)
 		{
 			var __proto = object[N::__proto__];
-			var tryprop;
 			while(__proto.type != Enum::Null)
 			{
-				tryprop = __proto[key];
-				if(tryprop.type != Enum::Null)
+				var* tryprop = &__proto[key];
+				if(tryprop->type != Enum::Null)
 				{
-					if(tryprop.type == Enum::Function){
-						*prop = var(new Class::Function(
-							((Class::Function*)tryprop.data.ptr)->value,
-							this));
-					}else{
-						*prop = tryprop;
-					}
+					*prop = *tryprop;
+					if (tryprop->type == Enum::Function)
+						(*prop)[N::__this__] = this;
 					break;
 				}
 				__proto = __proto[N::__proto__];
@@ -211,7 +200,7 @@ namespace NerdCore::Class
 			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return object[key];
+		return *prop;
 		#else
 		for (auto & search : object)
 		{

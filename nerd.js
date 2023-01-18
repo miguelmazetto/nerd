@@ -114,6 +114,14 @@ var operatorprecedence = [
 
 // a + b - c
 
+function findAST(ctx, ...types){
+    for (let i = 0; i < ctx.stack.length; i++) {
+        if(types.indexOf(ctx.stack[i].type) != -1)
+            return ctx.stack[i];
+    }
+    throw "Did not find "+type;
+}
+
 function _generateCode(AST, tab, ctx){
     if(!AST) return ""
     var ret = ""
@@ -341,6 +349,7 @@ function _generateCode(AST, tab, ctx){
             ctx.funcvar = generateCode(AST.id, tab, ctx)
             ret = tab + "var " + ctx.funcvar + " = "
 
+        case 'ArrowFunctionExpression':
         case 'FunctionExpression':
             //if(!ctx.funcvar && ctx.stack[1].type == 'AssignmentExpression' &&
             //        ctx.stack[2].type == 'ExpressionStatement'){
@@ -385,11 +394,11 @@ function _generateCode(AST, tab, ctx){
                    generateCode(AST.right, tab, ctx)
         
         case 'ArrayExpression':
-            return 'var(new NerdCore::Class::Array(' + genArray(AST.elements, tab, ctx).join(", ") + '))'
+            return 'var(new C::Array({' + genArray(AST.elements, tab, ctx).join(", ") + '}))'
         
         case 'ObjectExpression':
             ntab = tab + "\t";
-            return 'var(new NerdCore::Class::Object(' + (
+            return 'var(new C::Object(' + (
                 AST.properties.length == 0 ? '))' :
                 "{\n" + ntab +
                 genArray(AST.properties, tab, ctx).join(",\n" + ntab) +
@@ -461,11 +470,15 @@ function _generateCode(AST, tab, ctx){
         case 'ForInStatement':
             if(AST.body.type != 'BlockStatement')
                 AST.body = {type: 'BlockStatement', body: [AST.body]}
+
+            ctx.vardecl_as_expr = true;
             AST.body.body.unshift({
                 type: 'NativeBlock',
                 content: '\t'+tab + generateCode(AST.left, tab, ctx)+' = '+
                     '__NERD_VARARGS[0];'
             })
+            ctx.vardecl_as_expr = false;
+
             AST.body.body.push({type: 'ReturnStatement', argument:
                 {type: 'Identifier', name: 'NerdCore::Global::null'}})
 
@@ -480,6 +493,28 @@ function _generateCode(AST, tab, ctx){
             return tab + 'continue;\n'
 
         case 'EmptyStatement': return ''
+
+        case 'SwitchStatement':
+            AST.reg = [];
+            var cases = genArray(AST.cases, tab+'\t', ctx).join("");
+            
+            var obj = {type: 'ArrayExpression', elements: []};
+            for (let i = 0; i < AST.reg.length; i++) {
+                const e = AST.reg[i];
+                obj.elements.push(e)
+            }
+            obj = {type: 'CallExpression', arguments: [AST.discriminant], callee:
+                    {type: 'MemberExpression', object: obj, property:
+                      {type: 'Identifier', name: 'indexOf'}}}
+            return tab + 'switch((int)\n\t'+tab+generateCode(obj, tab, ctx)+'\n'+tab+'\t) {\n'+
+                cases+tab+"}\n";
+        
+        case 'SwitchCase':
+            var reg = findAST(ctx,'SwitchStatement').reg;
+            var caseindex = AST.test ? reg.push(AST.test)-1 : -1;
+            return tab + (AST.test ? 'case '+caseindex+': /* ' +
+                generateCode(AST.test, tab, ctx)+' */' : 'default:')+'\n'+
+                genArray(AST.consequent, tab+'\t', ctx).join("")+"\n";
         
         case 'NewExpression':
             callee = generateCode(AST.callee, tab, ctx);
@@ -569,11 +604,11 @@ function _processFile(fin, inroot, outroot, options){
     }
     var fout = outroot+bar+options.module_path
     var out
-    try{
+    //try{
         out = generateFile( getAST( fs.readFileSync(fin) ), fout, outroot, options)
-    }catch(e){
-        throw options.module_path+': '+e
-    }
+    //}catch(e){
+    //    throw options.module_path+': '+e
+    //}
     fs.mkdirSync( path.dirname(fout), {recursive: true} )
     fs.writeFileSync(fout + ".cpp", out, {})
     src_array.push(tostr(plat(path.relative(outroot, fout+".cpp"))))
@@ -662,8 +697,9 @@ function processExports(dirout, env){
             }
         }
         if(varname == "require") return;
-        out += "\t"+varname+" = require(__NERD_THIS, 0x"+hash+"); \\\n"
-        if(varname == "Object") return;
+        var iscore = ["Object","Array"].indexOf(varname) != -1;
+        out += "\t"+(iscore ? '' : varname+" = ")+"require(__NERD_THIS, 0x"+hash+"); \\\n"
+        if(iscore) return;
         env_h+="\textern NerdCore::VAR "+varname+"; \\\n"
         env_c+="\tNerdCore::VAR "+varname+"; \\\n"
     })
@@ -851,7 +887,7 @@ function _processProject(dirin, dirout, options){
     dobuild(dirout)
 }
 
-var JSenv = ["console","Object","JSON","Math","RegExp"];
+var JSenv = ["console","Object","Array","JSON","Math","RegExp"];
 
 //_processProject("in", "out")
 

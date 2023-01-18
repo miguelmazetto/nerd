@@ -31,25 +31,27 @@ namespace NerdCore::Class
 	// Constructors
 	Function::Function()
 	{
-		(*this)["prototype"] = new NerdCore::Class::Object();
+		(*this)[N::prototype] = new NerdCore::Class::Object();
 	}
 	Function::Function(void *val)
 	{
 		counter++;
 		value = (NerdCore::Type::function_t*)val;
-		if((*this)["prototype"].type == NerdCore::Enum::Type::Null)
+		var* proto = &object[N::prototype];
+		if(proto->type == NerdCore::Enum::Type::Null)
 		{
-			(*this)["prototype"] = new NerdCore::Class::Object();
+			*proto = new NerdCore::Class::Object();
 		}
 	}
 	Function::Function(void *val, NerdCore::VAR __this)
 	{
 		counter++;
-		(*this)["this"] = __this;
+		operator[](N::__this__) = __this;
 		value = (NerdCore::Type::function_t*)val;
-		if((*this)["prototype"].type == NerdCore::Enum::Type::Null)
+		var* proto = &object[N::prototype];
+		if(proto->type == NerdCore::Enum::Type::Null)
 		{
-			(*this)["prototype"] = new NerdCore::Class::Object();
+			*proto = new NerdCore::Class::Object();
 		}
 	}
 	// Methods

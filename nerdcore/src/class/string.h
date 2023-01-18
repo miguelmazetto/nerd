@@ -32,17 +32,17 @@ namespace NerdCore::Class
 	// Constructors
 	String::String()
 	{ 
-		object["__proto__"] = NerdCore::Global::String["prototype"];
+		object[N::__proto__] = NerdCore::Global::String[N::prototype];
 	}
 	String::String(std::string val)
 	{
-		object["__proto__"] = NerdCore::Global::String["prototype"];
+		object[N::__proto__] = NerdCore::Global::String[N::prototype];
 		value = val;
 	}
 	
 	String::String(const char* val)
 	{
-		object["__proto__"] = NerdCore::Global::String["prototype"];
+		object[N::__proto__] = NerdCore::Global::String[N::prototype];
 		value = val;
 	}
 	
@@ -149,28 +149,31 @@ namespace NerdCore::Class
 			std::string key = ((NerdCore::Class::String*)(keyVar.data.ptr))->value;
 			#ifndef __NERD__OBJECT_VECTOR
 			// if current object[key] is null, we look for the prototypal chain
-			if(object[key].type == NerdCore::Enum::Type::Null)
+			var* prop = &object[key];
+			if(prop->type == Enum::Null)
 			{
-				
-				NerdCore::VAR __proto = object["__proto__"];
-				while(__proto.type != NerdCore::Enum::Type::Null)
+				var __proto = object[N::__proto__];
+				while(__proto.type != Enum::Null)
 				{
-						if(__proto[key].type != NerdCore::Enum::Type::Null)
-						{
-							object[key] = __proto[key];
-							break;
-						}
-						__proto = __proto["__proto__"];
+					var* tryprop = &__proto[key];
+					if(tryprop->type != Enum::Null)
+					{
+						*prop = *tryprop;
+						if (tryprop->type == Enum::Function)
+							(*prop)[N::__this__] = this;
+						break;
+					}
+					__proto = __proto[N::__proto__];
 				}
 			}
 			/*
 			if(object[key].type == NerdCore::Enum::Type::Function)
 			{
-				value.copy((char*)__NERD_FUNCTION(object[key])->bind, value.length());
+				(__NERD_FUNCTION(object[key]))->object["this"] = NerdCore::VAR(this);
+				__NERD_FUNCTION(object[key])->bind = bind;
 			}
 			*/
-			
-			return object[key];
+			return *prop;
 			#else
 			for (auto & search : object)
 			{
@@ -211,27 +214,31 @@ namespace NerdCore::Class
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain
-		if(object[key].type == NerdCore::Enum::Type::Null)
+		var* prop = &object[key];
+		if(prop->type == Enum::Null)
 		{
-			NerdCore::VAR __proto = object["__proto__"];
-			while(__proto.type != NerdCore::Enum::Type::Null)
+			var __proto = object[N::__proto__];
+			while(__proto.type != Enum::Null)
 			{
-					if(__proto[key].type != NerdCore::Enum::Type::Null)
-					{
-						object[key] = __proto[key];
-						break;
-					}
-					__proto = __proto["__proto__"];
+				var* tryprop = &__proto[key];
+				if(tryprop->type != Enum::Null)
+				{
+					*prop = *tryprop;
+					if (tryprop->type == Enum::Function)
+						(*prop)[N::__this__] = this;
+					break;
+				}
+				__proto = __proto[N::__proto__];
 			}
 		}
 		/*
 		if(object[key].type == NerdCore::Enum::Type::Function)
 		{
-			//__NERD_FUNCTION(object[key])->bind = value.data();
-			//value.copy((char*)__NERD_FUNCTION(object[key])->bind, value.length());
+			(__NERD_FUNCTION(object[key]))->object["this"] = NerdCore::VAR(this);
+			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return object[key];
+		return *prop;
 		#else
 		for (auto & search : object)
 		{

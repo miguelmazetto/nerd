@@ -460,7 +460,7 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 	}
 	else if (_t == NerdCore::Enum::Type::Function)
 	{
-		return "func'" + (std::string)(*(NerdCore::Class::Function*)_var.data.ptr) + "'";
+		return "func'" + std::string(__NERD_Object_Stringify(var(& (*(NerdCore::Class::Function*)_var.data.ptr).object))) + "'";
 	}
 	else if (_t == NerdCore::Enum::Type::FixedArray)
 	{

@@ -142,7 +142,7 @@ namespace NerdCore
 		#endif
 				exit(1);
 			}
-			return (*(NerdCore::Class::Function*)data.ptr)(__NERD_THIS, (VAR)(args)...);
+			return (*(C::Function*)data.ptr)(__NERD_THIS, (VAR)(args)...);
 		}
 		
 		/* END CALL OVERLOAD */

@@ -138,17 +138,21 @@ namespace NerdCore::Class
 	{
 		#ifndef __NERD__OBJECT_VECTOR
 		// if current object[key] is null, we look for the prototypal chain
-		if(object[key].type == NerdCore::Enum::Type::Null)
+		var* prop = &object[key];
+		if(prop->type == NerdCore::Enum::Type::Null)
 		{
-			NerdCore::VAR __proto = object["__proto__"];
+			NerdCore::VAR __proto = object[N::__proto__];
 			while(__proto.type != NerdCore::Enum::Type::Null)
 			{
-					if(__proto[key].type != NerdCore::Enum::Type::Null)
-					{
-						object[key] = __proto[key];
-						break;
-					}
-					__proto = __proto["__proto__"];
+				var* tryprop = &__proto[key];
+				if(tryprop->type != NerdCore::Enum::Type::Null)
+				{
+					*prop = *tryprop;
+					if (tryprop->type == Enum::Function)
+						(*prop)[N::__this__] = this;
+					break;
+				}
+				__proto = __proto[N::__proto__];
 			}
 		}
 		/*
@@ -158,7 +162,7 @@ namespace NerdCore::Class
 			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return object[key];
+		return *prop;
 		#else
 		for (auto & search : object)
 		{
@@ -188,6 +192,8 @@ namespace NerdCore::Class
 				if(tryprop->type != Enum::Null)
 				{
 					*prop = *tryprop;
+					if (tryprop->type == Enum::Function)
+						(*prop)[N::__this__] = this;
 					break;
 				}
 				__proto = __proto[N::__proto__];
@@ -200,7 +206,7 @@ namespace NerdCore::Class
 			__NERD_FUNCTION(object[key])->bind = bind;
 		}
 		*/
-		return *prop;
+		return *prop; //object[key];
 		#else
 		for (auto & search : object)
 		{

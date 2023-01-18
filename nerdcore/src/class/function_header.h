@@ -24,6 +24,8 @@
 #pragma once
 #include "_meta.h"
 
+using namespace NerdCore::Global;
+
 namespace NerdCore::Class
 {
 #ifdef _MSC_VER
@@ -54,7 +56,7 @@ namespace NerdCore::Class
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object["this"], _args, i);
+				return std::invoke((*static_cast<NerdCore::Type::function_t*>(value)), object[N::__this__], _args, i);
 			}
 			else
 			{
@@ -80,7 +82,8 @@ namespace NerdCore::Class
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object["this"], _args, i);
+				std::cout << "Call:" << __NERD_Object_Stringify(var(this)) << '\n';
+				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object[N::__this__], _args, i);
 			}
 			else
 			{

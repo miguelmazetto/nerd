@@ -20,43 +20,33 @@
 	SOFTWARE.
 
 */
+{{
+	#define CallVAR(func, This, _args, i) (((C::Function*)func.data.ptr)->Call(This, _args, i))
+}}
 
-Object.keys = function(_obj)
-{
+Array.prototype.forEach = function(func, nthis){
 	{{
-		return __NERD_Object_Keys(_obj);
+		if(func.type != Enum::Function) return undefined;
+		if(!nthis) nthis = __NERD_THIS;
+		auto& value = ((NerdCore::Class::Array*)__NERD_THIS.data.ptr)->value;
+		auto end = value.end();
+		auto begin = value.begin();
+		var kvarr[3];
+		kvarr[2] = __NERD_THIS;
+		for (auto it = begin; it < end; it++) {
+			kvarr[0] = *it;
+			kvarr[1] = int(it - begin);
+			if(CallVAR(func, nthis, kvarr, 3) == __True)
+				break;
+		}
 	}}
-};
-
-Object.create = function(proto, propertiesObject){
-	var obj = {__proto__: proto};
-	if(propertiesObject){
-		//TODO
-	}
-	return obj;
 }
 
-Object.clone = function(obj)
-{
-	var result = {};
-	if(type_of(result) == "array")
-	{	
-		result = [];
-	}
-	
-	var i;
-	for (i in obj)
-	{
-		if (typeof(obj[i]) == "object")
-		{
-		  result[i] = Object.clone(obj[i]);
-		}
-		else
-		{
-			result[i] = obj[i];
-		}
-	}
-	return result;
-};
+Array.prototype.indexOf = function(val){
+	this.forEach((v,k) => {
+		if(v == val) return k;
+	})
+	return -1;
+}
 
-return Object;
+return Array;
