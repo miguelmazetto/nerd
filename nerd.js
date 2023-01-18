@@ -122,6 +122,50 @@ function findAST(ctx, ...types){
     throw "Did not find "+type;
 }
 
+function is_Binary_Expression(ast){
+    return ['AssignmentExpression','LogicalExpression','BinaryExpression']
+        .indexOf(ast.type) != -1;
+}
+
+const types_string = ['string','number','boolean','object','function'];
+
+function typeof_optimization(ast, tab, ctx){
+    if(!is_Binary_Expression(ast)) return ast;
+    if(['==','!='].indexOf(ast.operator) == -1) return ast;
+
+    function istypeof(ast){
+        return ast.type == 'UnaryExpression' && ast.operator == 'typeof';
+    }
+    function istypestr(ast){
+        return ast.type == 'Literal' && types_string.indexOf(ast.value) != -1;
+    }
+
+    const enums = ['Enum::String', 'Enum::Number', 'Enum::Boolean', 'Enum::Object', 'Enum::Function'];
+
+    if(istypeof(ast.left) && istypestr(ast.right)){
+
+        ast.left = {type: 'NativeExpression',
+            content: _generateCode(ast.left.argument, tab, ctx)+'.type'}
+        
+        ast.right = {type: 'NativeExpression',
+            content: enums[types_string.indexOf(ast.right.value)]}
+
+    }else if(istypestr(ast.left) && istypeof(ast.right)){
+
+        ast.right = {type: 'NativeExpression',
+            content: _generateCode(ast.right.argument, tab, ctx)+'.type'}
+        
+        ast.left = {type: 'NativeExpression',
+            content: enums[types_string.indexOf(ast.left.value)]}
+
+    }else{
+        ast.left = typeof_optimization(ast.left, tab, ctx);
+        ast.right = typeof_optimization(ast.right, tab, ctx);
+    }
+
+    return ast
+}
+
 function _generateCode(AST, tab, ctx){
     if(!AST) return ""
     var ret = ""
@@ -149,7 +193,7 @@ function _generateCode(AST, tab, ctx){
             return ret
 
         case 'CallExpression':
-            var nthis = {type: 'Identifier', name: 'undefined'}
+            var nthis = {type: 'Identifier', name: 'G::null'}
             if(AST.callee.type == "MemberExpression"){
                 var prop = generateCode(AST.callee.property, tab, ctx);
                 switch(prop){
@@ -175,7 +219,6 @@ function _generateCode(AST, tab, ctx){
                 ctx.removestack = 2; // Removes the statement
                 return ''
             }
-
 
             if(callee == "require"){
                 if(arglen > 0 && arg0.type == 'Literal'
@@ -215,6 +258,8 @@ function _generateCode(AST, tab, ctx){
                 switch(AST.name){
                     case 'arguments':
                         return 'arguments()'
+                    case 'null':
+                        return 'G::null'
                 }
             }
             return AST.name
@@ -225,6 +270,8 @@ function _generateCode(AST, tab, ctx){
             var bf = '', aft ='';
             var lbf = '', laft = '';
             var rbf = '', raft = '';
+
+            typeof_optimization(AST, tab, ctx);
             
             if(AST.left.type == 'BinaryExpression' || 
                AST.left.type == 'LogicalExpression' ||
@@ -379,7 +426,7 @@ function _generateCode(AST, tab, ctx){
             }
 
             ret += generateCode(AST.body, tab, ctx) +
-                ntab + 'return NerdCore::Global::null;\n'+tab+'})'
+                ntab + 'return G::null;\n'+tab+'})'
 
             if(AST.type == "FunctionDeclaration")
                 ret += ";\n"
@@ -417,7 +464,7 @@ function _generateCode(AST, tab, ctx){
             ctx.nonl = true
             var body = generateCode(AST.consequent, (conblock ? tab : tab+'\t'), ctx)
             ctx.nonl = false
-            var alternate = '\n';
+            var alternate = '';
             if(AST.alternate){
                 altblock = AST.alternate.type == "BlockStatement"
                 ctx.notab = AST.alternate.type == 'IfStatement'
@@ -427,9 +474,14 @@ function _generateCode(AST, tab, ctx){
                     generateCode(AST.alternate, (altblock || ctx.notab ? tab : '\t'+tab), ctx)
             }
             ctx.notab = false
+
+            // Optimization
+            // typeof variable == 'type'
+
+
             return (notab ? '' : tab) +
                 'if(' + generateCode(AST.test, tab, ctx) + ')' + (conblock ? '' : '\n')
-                + body + (conblock ? '' : '\n') + alternate
+                + body + (AST.alternate ? (altblock ? '' : '\n') + alternate : (conblock ? '\n' : ''))
         
         case 'ForStatement':
             ctx.vardecl_as_expr = true
@@ -480,7 +532,7 @@ function _generateCode(AST, tab, ctx){
             ctx.vardecl_as_expr = false;
 
             AST.body.body.push({type: 'ReturnStatement', argument:
-                {type: 'Identifier', name: 'NerdCore::Global::null'}})
+                {type: 'Identifier', name: 'G::null'}})
 
             ret = tab+'__NERD_FORIN('+generateCode(AST.right, tab, ctx)+', '
             ctx.nonl = true;
@@ -529,6 +581,9 @@ function _generateCode(AST, tab, ctx){
         case 'NativeBlock':
             return AST.content + '\n'
 
+        case 'NativeExpression':
+            return AST.content;
+
         case 'ThisExpression': return '__NERD_THIS'
 
         case 'Literal': // String, Number, etc...
@@ -536,6 +591,8 @@ function _generateCode(AST, tab, ctx){
                 case 'string':
                     return tostr(AST.value)
                 case 'boolean':
+                    if(AST.value) return '__True'
+                    else          return '__False'
                 case 'number':
                     return AST.raw
                 case 'object':
@@ -707,8 +764,7 @@ function processExports(dirout, env){
            env_h.substring(0, env_h.length-3),
            env_c.substring(0, env_c.length-3)].join("\n\n")+
            '\n\n#define __NERD_EXPORTED\n'+
-           '#include <nerdcore/src/nerd.hpp>\n'
-
+           '#include <nerdcore/src/values_header.h>\n'
     out += "using namespace NerdCore::Global;\n"
     out += "namespace NerdCore::Global::N\n{\n"
     out += '\tconst H::hkey __proto__ = H::hkey{"__proto__", H::hash("__proto__")};\n'
@@ -718,6 +774,7 @@ function processExports(dirout, env){
         out += '\tconst H::hkey '+key+' = H::hkey{"'+key+'", H::hash("'+key+'")};\n'
     }
     out += "}\n"
+    out += '#include <nerdcore/src/nerd.hpp>\n';
 
     fs.writeFileSync(dirout + bar + "nerd_exports.hpp", out)
 }

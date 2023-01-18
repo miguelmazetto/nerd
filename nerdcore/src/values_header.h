@@ -46,9 +46,9 @@ namespace NerdCore::Global
 		using hkey = NerdCore::Type::HashedString;
 		std::size_t hash(std::string_view str);
 	}
-	namespace Type { using namespace NerdCore::Type; }
-	namespace Class { using namespace NerdCore::Class; }
+	namespace T { using namespace NerdCore::Type; }
 	namespace C { using namespace NerdCore::Class; }
+	namespace G { using namespace NerdCore::Global; }
 	using namespace NerdCore;
 }
 

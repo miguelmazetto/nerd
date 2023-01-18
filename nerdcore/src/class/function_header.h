@@ -82,7 +82,6 @@ namespace NerdCore::Class
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				std::cout << "Call:" << __NERD_Object_Stringify(var(this)) << '\n';
 				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object[N::__this__], _args, i);
 			}
 			else

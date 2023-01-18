@@ -20,8 +20,6 @@
     reqmodule modules[] = __NERD_GET_REQTABLE();
 
     std::vector<loaded_reqmodule> loaded;
-
-    std::cout << "init require\n";
 }}
 
 function require(path){
@@ -29,10 +27,7 @@ function require(path){
         if(path.type == NerdCore::Enum::Type::String){
             std::cerr << "TODO: dynamic require by path solving and crc\n";
             exit(1);
-
-            //if(path.indexOf(".") == -1){ // require('http')
-            //    return
-            //}
+            
         }else if(path.type < NerdCore::Enum::Type::String){
             unsigned int incrc = path.data.number;
 
