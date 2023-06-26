@@ -1,16 +1,47 @@
+//const http = require('http')
+//
+//http.createServer((req, res)=>{
+//  res.writeHead(200);
+//  res.end('Hello World');
+//}).listen(8080)
+
+/*
 var perf_hooks = require("perf_hooks");
 
 var bfore, after;
+
+function objectseeder(obj,n){
+  for (let i = 0; i < n; i++) {
+    obj["key_"+i*1337] = true;
+  }
+}
+
 var subject = {}
 
-function benchsample(n){
-  console.log("\nstart",n,"samples");
-  var now = perf_hooks.performance.now;
+//console.log("object", subject)
 
+//
+//switch ('fas') {
+//  case 'fsafsa':
+//    console.log("yeah")
+//    break;
+//
+//  default:
+//    console.log("no!")
+//    break;
+//}
+
+function benchsample(n){
+  var now = perf_hooks.performance.now;
+  objectseeder(subject, n);
+  console.log("\nstart",n,"samples");
   bfore = now();
 
-  for (var i = 0; i < n; i++) {
-    subject.benchmark = true;
+  //for (var i = 0; i < n; i++) {
+  //  subject.benchmark = true;
+  //}
+  for (const key in subject) {
+    subject[key] = false;
   }
 
   after = now();
@@ -24,5 +55,9 @@ function benchsample(n){
 for (let samplesize = 0; samplesize < 10; samplesize++) {
   var ss = 10**samplesize;
   var t = benchsample(ss);
-  if(t > 1000000000) break; // stop if reaches 1 sec
-}
+  if(t > 10000) break; // stop if reaches 10 sec
+}*/
+
+console.log("start!")
+var str = "  trimm!  ";
+console.log(str.trim())

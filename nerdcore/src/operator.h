@@ -21,6 +21,12 @@
 
 */
 
+#ifdef _MSC_VER
+#define ESC "\x1B"
+#else
+#define ESC "\e"
+#endif
+
 NerdCore::VAR operator+ (const char* _left, const NerdCore::VAR &_right)
 {
 	return NerdCore::VAR(_left) + _right;
@@ -450,13 +456,20 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var)
 NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 {
 	NerdCore::Enum::Type _t = _var.type;
-	if (_t == NerdCore::Enum::Type::Number)
+	if (_t == NerdCore::Enum::Type::Boolean)
 	{
-		return "\e[33m" + _var + "\e[0m";
+		if(_var.data.number)
+			return ESC "[33mtrue" ESC "[0m";
+		else
+			return ESC "[33mfalse" ESC "[0m";
+	}
+	else if (_t == NerdCore::Enum::Type::Number)
+	{
+		return ESC "[33m" + _var + ESC "[0m";
 	}
 	else if (_t == NerdCore::Enum::Type::String)
 	{
-		return "\e[32m'" + ((NerdCore::Class::String*)_var.data.ptr)->value + "'\e[0m";
+		return ESC "[32m'" + ((NerdCore::Class::String*)_var.data.ptr)->value + "'" ESC "[0m";
 	}
 	else if (_t == NerdCore::Enum::Type::Function)
 	{
@@ -477,9 +490,9 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 			if(k > 0)
 			{
 				if(k == 1)
-					_res += "\e[90m<1 empty item>\e[0m, ";
+					_res += ESC "[90m<1 empty item>" ESC "[0m, ";
 				else
-					_res += "\e[90m<" + std::to_string(k) + " empty items>\e[0m, ";
+					_res += ESC "[90m<" + std::to_string(k) + " empty items>" ESC "[0m, ";
 				k = 0;
 			}
 			_res += __NERD_Object_Stringify((*_arr)[i], _bracket);
@@ -490,9 +503,9 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 		{
 			if (l > 0) _res += ", ";
 			if(k == 1)
-				_res += "\e[90m<1 empty item>\e[0m";
+				_res += ESC "[90m<1 empty item>" ESC "[0m";
 			else
-				_res += "\e[90m<" + std::to_string(k) + " empty items>\e[0m";
+				_res += ESC "[90m<" + std::to_string(k) + " empty items>" ESC "[0m";
 			l++;
 		}
 		
@@ -514,9 +527,9 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 			if(k > 0)
 			{
 				if(k == 1)
-					_res += "\e[90m<1 empty item>\e[0m, ";
+					_res += ESC "[90m<1 empty item>" ESC "[0m, ";
 				else
-					_res += "\e[90m<" + std::to_string(k) + " empty items>\e[0m, ";
+					_res += ESC "[90m<" + std::to_string(k) + " empty items>" ESC "[0m, ";
 				k = 0;
 			}
 
@@ -529,9 +542,9 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 		{
 			if (l > 0) _res += ", ";
 			if(k == 1)
-				_res += "\e[90m<1 empty item>\e[0m";
+				_res += ESC "[90m<1 empty item>" ESC "[0m";
 			else
-				_res += "\e[90m<" + std::to_string(k) + " empty items>\e[0m";
+				_res += ESC "[90m<" + std::to_string(k) + " empty items>" ESC "[0m";
 			l++;
 		}
 

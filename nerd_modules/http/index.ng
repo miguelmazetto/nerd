@@ -37,9 +37,11 @@ _protoRes.prototype.writeHead = function(statusCode, headers) {
 	}
 }
 
+_protoRes.prototype.setStatus = function(arg){
+	{{((uWS::HttpResponse<false>*)__NERD_OBJECT(__NERD_THIS)->bind)->writeStatus((std::string)arg);}}
+};
+
 {{
-	
-	_protoRes["prototype"]["setStatus"] = __LAZY_RES_STATUS;
 	_protoRes["prototype"]["writeHeader"] = __LAZY_RES_HEADER;
 	_protoRes["prototype"]["write"] = __LAZY_RES_WRITE;
 	_protoRes["prototype"]["end"] = __LAZY_RES_END;

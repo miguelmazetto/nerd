@@ -68,6 +68,24 @@
 
 #define __NERD_FORIN(_obj, __CONTENT__) NerdCore::Helper::for_in_loop(__NERD_THIS, _obj, __NERD_Create_Ptr_Scoped_Copy_Anon(__CONTENT__))
 
+#define __NERD_FNARG_DECL(_v, _at, _i) \
+	var _v _at; if(__NERD_VARLENGTH > _i) _v = __NERD_VARARGS[_i];
+
+#define __NERD_FNARG_DECL1(s,_v, _at) \
+	__NERD_FNARG_DECL(_v, _at, s+0)
+
+#define __NERD_FNARG_DECL2(s,_v0, _at0, _v1, _at1) \
+	__NERD_FNARG_DECL(_v0, _at0, s+0) \
+	__NERD_FNARG_DECL(_v1, _at1, s+1)
+
+#define __NERD_FNARG_DECL3(s, _v0, _at0, _v1, _at1, _v2, _at2) \
+	__NERD_FNARG_DECL2(s, _v0, _at0, _v1, _at1) \
+	__NERD_FNARG_DECL (_v2, _at2, s+2)
+
+#define __NERD_FNARG_DECL4(s, _v0, _at0, _v1, _at1, _v2, _at2, _v3, _at3) \
+	__NERD_FNARG_DECL2(s, _v0, _at0, _v1, _at1) \
+	__NERD_FNARG_DECL2(s+2, _v2, _at2, _v3, _at3)
+
 //require
 #if (__MODULE_NAME != 0x41266748) // crc32("require")
 #undef __NERD_INIT_REQUIRE

@@ -112,8 +112,6 @@ var operatorprecedence = [
     '|='
 ]
 
-// a + b - c
-
 function findAST(ctx, ...types){
     for (let i = 0; i < ctx.stack.length; i++) {
         if(types.indexOf(ctx.stack[i].type) != -1)
@@ -159,8 +157,8 @@ function typeof_optimization(ast, tab, ctx){
             content: enums[types_string.indexOf(ast.left.value)]}
 
     }else{
-        ast.left = typeof_optimization(ast.left, tab, ctx);
-        ast.right = typeof_optimization(ast.right, tab, ctx);
+        //ast.left = typeof_optimization(ast.left, tab, ctx);
+        //ast.right = typeof_optimization(ast.right, tab, ctx);
     }
 
     return ast
@@ -416,13 +414,42 @@ function _generateCode(AST, tab, ctx){
             var ntab = tab + "\t"
 
             if(AST.params.length > 0){
-                ret += ntab + "var " + genArray(AST.params, ntab, ctx).join("; var ") + ";\n"
+                //ret += ntab + "var " + genArray(AST.params, ntab, ctx).join("; var ") + ";\n"
+                //for (let i = 0; i < AST.params.length; i++) {
+                //    const e = AST.params[i];
+                //    ret += ntab + "if(__NERD_VARLENGTH > "+i+") " +
+                //        generateCode(e.type == 'AssignmentPattern' ? e.left : e, ntab, ctx) +
+                //        " = __NERD_VARARGS["+i+"];\n"
+                //}
+                var fnargs = [];
                 for (let i = 0; i < AST.params.length; i++) {
                     const e = AST.params[i];
-                    ret += ntab + "if(__NERD_VARLENGTH > "+i+") " +
-                        generateCode(e.type == 'AssignmentPattern' ? e.left : e, ntab, ctx) +
-                        " = __NERD_VARARGS["+i+"];\n"
+                    fnargs.push([
+                        e.type == 'AssignmentPattern' ? generateCode(e.left, ntab, ctx) : generateCode(e, ntab, ctx),
+                        e.type == 'AssignmentPattern' ? '='+generateCode(e.right, ntab, ctx) : '']
+                            .join(','))
                 }
+                var nfnargs = [];
+                for (var i = 0; i < fnargs.length; i++) {
+                    var remaining = fnargs.length - i;
+                    if(remaining >= 4){
+                        nfnargs.push('__NERD_FNARG_DECL4('+i+','+fnargs.slice(i,i+4).join(",")+');')
+                        i += 3;
+                        continue;
+                    }
+                    if(remaining >= 3){
+                        nfnargs.push('__NERD_FNARG_DECL3('+i+','+fnargs.slice(i,i+3).join(",")+');')
+                        i += 2;
+                        continue;
+                    }
+                    if(remaining >= 2){
+                        nfnargs.push('__NERD_FNARG_DECL2('+i+','+fnargs.slice(i,i+2).join(",")+');')
+                        i += 1;
+                        continue;
+                    }
+                    nfnargs.push('__NERD_FNARG_DECL1('+i+','+fnargs[i]+');')
+                }
+                ret += ntab + nfnargs.join("\n"+ntab) + "\n";
             }
 
             ret += generateCode(AST.body, tab, ctx) +
@@ -754,7 +781,7 @@ function processExports(dirout, env){
             }
         }
         if(varname == "require") return;
-        var iscore = ["Object","Array"].indexOf(varname) != -1;
+        var iscore = ["Object","Array","String"].indexOf(varname) != -1;
         out += "\t"+(iscore ? '' : varname+" = ")+"require(__NERD_THIS, 0x"+hash+"); \\\n"
         if(iscore) return;
         env_h+="\textern NerdCore::VAR "+varname+"; \\\n"
@@ -944,7 +971,7 @@ function _processProject(dirin, dirout, options){
     dobuild(dirout)
 }
 
-var JSenv = ["console","Object","Array","JSON","Math","RegExp"];
+var JSenv = ["console","Object","Array","String","JSON","Math","RegExp"];
 
 //_processProject("in", "out")
 
