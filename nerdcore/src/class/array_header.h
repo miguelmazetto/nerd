@@ -66,8 +66,10 @@ namespace NerdCore::Class
 		NerdCore::VAR &GetSet(std::string key);
 		NerdCore::VAR &GetSet(const NerdCore::Type::HashedString& key);
 		NerdCore::VAR const operator[](int key) const;
+		NerdCore::VAR const operator[](size_t key) const;
 		NerdCore::VAR &operator[](NerdCore::VAR key);
 		NerdCore::VAR &operator[](int key);
+		NerdCore::VAR &operator[](size_t key);
 		NerdCore::VAR &operator[](double key);
 		NerdCore::VAR &operator[](const char* key);
 		NerdCore::VAR &operator[](const NerdCore::Type::HashedString& key);

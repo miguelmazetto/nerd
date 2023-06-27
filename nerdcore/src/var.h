@@ -350,7 +350,7 @@ namespace NerdCore
 			return;
 		}
 		
-		if(type > NerdCore::Enum::Type::String) 
+		if(type >= NerdCore::Enum::Type::String) 
 		{
 			((NerdCore::Class::Base*)data.ptr)->Delete();
 		}

@@ -118,7 +118,7 @@ fs.mkdir = function(_path)
 		#ifndef __linux__ 
 			mkdir(_path);
 		#else
-			// TODO
+			mkdir(_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		#endif
 	}}
 	return true;

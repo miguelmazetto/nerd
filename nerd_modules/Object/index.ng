@@ -39,7 +39,7 @@ Object.create = function(proto, propertiesObject){
 Object.clone = function(obj)
 {
 	var result = {};
-	if(type_of(result) == "array")
+	if(typeof(obj) == "array")
 	{	
 		result = [];
 	}

@@ -33,7 +33,6 @@ String.prototype.replace = function(_search, _replace)
 }
 
 String.prototype.trim = function(){
-	console.log("trim start!",this);
 	{{
 		std::string& str = VAR2STR(__NERD_THIS);
 		size_t start = 0;
@@ -41,8 +40,6 @@ String.prototype.trim = function(){
 		while(str[start] == ' ') start++;
 		while(str[end-1] == ' ') end--;
 		auto res = str.substr(start, end-start);
-		console[N::log](G::null, start, end, res);
-		//std::cout << res << '\n';
 		return res;
 	}}
 }

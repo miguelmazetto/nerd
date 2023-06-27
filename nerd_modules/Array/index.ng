@@ -43,10 +43,14 @@ Array.prototype.forEach = function(func, nthis){
 }
 
 Array.prototype.indexOf = function(val){
+	var ret = -1
 	this.forEach((v,k) => {
-		if(v == val) return k;
+		if(v == val) {
+			ret = k
+			return true
+		}
 	})
-	return -1;
+	return ret;
 }
 
 return Array;

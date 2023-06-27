@@ -232,6 +232,16 @@ namespace NerdCore::Class
 		
 		return NerdCore::Global::null;
 	}
+
+	NerdCore::VAR const Array::operator[](size_t key) const
+	{
+		if (key <= value.size())
+		{
+			return value.at(key);
+		}
+		
+		return NerdCore::Global::null;
+	}
 	
 	NerdCore::VAR &Array::operator[](NerdCore::VAR key)
 	{	
@@ -271,6 +281,15 @@ namespace NerdCore::Class
 			{
 				value.resize(key + 1);
 			}
+		}
+		return value[key];
+	}
+
+	NerdCore::VAR &Array::operator[](size_t key)
+	{
+		if (key >= value.size())
+		{
+			value.resize(key + 1);
 		}
 		return value[key];
 	}
