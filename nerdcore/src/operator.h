@@ -533,7 +533,6 @@ NerdCore::VAR __NERD_Object_Stringify(NerdCore::VAR _var, bool _bracket)
 				k = 0;
 			}
 
-			NerdCore::Global::var test = 
 			_res += __NERD_Object_Stringify((*_arr)[i], _bracket);
 			
 			l++;

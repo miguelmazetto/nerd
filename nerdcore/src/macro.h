@@ -86,6 +86,14 @@
 	__NERD_FNARG_DECL2(s, _v0, _at0, _v1, _at1) \
 	__NERD_FNARG_DECL2(s+2, _v2, _at2, _v3, _at3)
 
+#define __NERD_FNRESTPARAM_DECL(_v, _beforeargn) \
+	var _v = new C::Array();\
+	for (int i = _beforeargn; i < __NERD_VARLENGTH; i++) \
+		_v[i - _beforeargn] = __NERD_VARARGS[i];
+
+#define __NERD_IFNULL_SET(_v, _to)\
+	if((_v).type == Enum::Null) _v = _to;
+
 //require
 #if (__MODULE_NAME != 0x41266748) // crc32("require")
 #undef __NERD_INIT_REQUIRE

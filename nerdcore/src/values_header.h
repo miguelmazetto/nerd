@@ -25,21 +25,21 @@ namespace NerdCore::Global
 {	
 	using var = NerdCore::VAR;
 	using let = NerdCore::VAR;
-	extern NerdCore::VAR null;
-	extern NerdCore::VAR undefined;
-	extern NerdCore::VAR Infinity;
-	extern NerdCore::VAR NaN;
-	extern NerdCore::VAR __True;
-	extern NerdCore::VAR __False;
+	extern var null;
+	extern var undefined;
+	extern var Infinity;
+	extern var NaN;
+	extern var __True;
+	extern var __False;
+	extern var EVarArg;
 	
-	extern NerdCore::VAR global;
-	extern NerdCore::VAR __NERD_THIS;
-	//extern NerdCore::VAR String;
-	extern NerdCore::VAR String;
-	extern NerdCore::VAR Object;
-	extern NerdCore::VAR Array;
-	extern NerdCore::VAR __NERD_ARGS;
-	extern NerdCore::VAR require;
+	extern var global;
+	extern var __NERD_THIS;
+	extern var String;
+	extern var Object;
+	extern var Array;
+	extern var __NERD_ARGS;
+	extern var require;
 	__NERD_STDENV_H()
 
 	namespace H {

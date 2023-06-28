@@ -24,33 +24,120 @@
 	#define CallVAR(func, This, _args, i) (((C::Function*)func.data.ptr)->Call(This, _args, i))
 }}
 
-Array.prototype.forEach = function(func, nthis){
+Array.prototype.forEach = function(func, thisArg = this){
 	{{
-		if(func.type != Enum::Function) return undefined;
-		if(!nthis) nthis = __NERD_THIS;
+		if(func.type != Enum::Function) return G::undefined;
 		auto& value = ((NerdCore::Class::Array*)__NERD_THIS.data.ptr)->value;
 		auto end = value.end();
 		auto begin = value.begin();
 		var kvarr[3];
 		kvarr[2] = __NERD_THIS;
-		for (auto it = begin; it < end; it++) {
+		for (auto it = begin; it < end; ++it) {
 			kvarr[0] = *it;
 			kvarr[1] = int(it - begin);
-			if(CallVAR(func, nthis, kvarr, 3) == __True)
-				break;
+			CallVAR(func, thisArg, kvarr, 3);
 		}
 	}}
 }
 
-Array.prototype.indexOf = function(val){
-	var ret = -1
-	this.forEach((v,k) => {
-		if(v == val) {
-			ret = k
-			return true
+Array.prototype.indexOf = function(val, fromindex){
+	{{
+		auto& value = __NERD_ARRAY(__NERD_THIS)->value;
+
+		auto it = value.begin();
+
+		if(fromindex){
+			while(it < value.end() && (int)(it - value.begin()) < fromindex) it++;
+			it--;
 		}
-	})
-	return ret;
+
+		for (; it < value.end(); ++it)
+			if(*it == val)
+				return (int)(it - value.begin());
+
+		return -1;
+	}}
+}
+
+Array.prototype.lastIndexOf = function(val, fromindex){
+	{{
+		auto& value = __NERD_ARRAY(__NERD_THIS)->value;
+
+		auto it = value.rbegin();
+
+		if(fromindex){
+			while(it < value.rend() && ((int)(value.rend() - it) - 1) < fromindex) it++;
+			it--;
+		}
+
+		for (; it < value.rend(); ++it)
+			if(*it == val)
+				return (int)(value.rend() - it) - 1;
+
+		return -1;
+	}}
+}
+
+Array.isArray = function(val){
+	return typeof val == 'Array'
+}
+
+Array.prototype.every = function(callbackFn, thisArg = this){
+	var ret = true
+	this.forEach((v,k,arr) => {
+		ret = ret && callbackFn(v,k,arr)
+	}, thisArg)
+	return ret
+}
+
+Array.prototype.some = function(callbackFn, thisArg = this){
+	var ret = false
+	this.forEach((v,k,arr) => {
+		ret = ret || callbackFn(v,k,arr)
+	}, thisArg)
+	return ret
+}
+
+Array.prototype.shift = function(){
+	{{
+		auto& value = __NERD_ARRAY(__NERD_THIS)->value;
+		if(value.empty()) return G::undefined;
+
+		var ret = value.front();
+		value.erase(value.begin());
+		return ret;
+	}}
+}
+
+Array.prototype.pop = function(){
+	{{
+		auto& value = __NERD_ARRAY(__NERD_THIS)->value;
+		if(value.empty()) return G::undefined;
+
+		var ret = value.back();
+		value.erase(value.end()-1);
+		return ret;
+	}}
+}
+
+Array.prototype.push = function(...vals){
+	{{
+		auto& target = __NERD_ARRAY(__NERD_THIS)->value;
+		auto& valsarr = __NERD_ARRAY(vals)->value;
+
+		target.insert(target.end(), valsarr.begin(), valsarr.end());
+		return target.size();
+	}}
+}
+
+Array.prototype.unshift = function(...vals){
+	{{
+		auto& target = __NERD_ARRAY(__NERD_THIS)->value;
+		auto& valsarr = __NERD_ARRAY(vals)->value;
+
+		target.insert(target.begin(), valsarr.begin(), valsarr.end());
+		return target.size();
+	}}
 }
 
 return Array;

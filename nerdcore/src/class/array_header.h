@@ -42,6 +42,7 @@ namespace NerdCore::Class
 		{
 			NerdCore::Type::vector_t _vec = {args...};
 			value = _vec;
+			ProcessSpreads();
 		}
 		
 		Array(std::initializer_list<NerdCore::VAR> l);
@@ -56,6 +57,7 @@ namespace NerdCore::Class
 		inline void Delete() noexcept;
 		inline void jsDelete(const NerdCore::VAR _key) noexcept;
 		inline void* Copy() noexcept;
+		void Array::ProcessSpreads();
 		// Native cast
 		explicit operator bool() const noexcept;
 		explicit operator double() const noexcept;

@@ -43,6 +43,7 @@ namespace NerdCore::Class
 	Array::Array(std::initializer_list<NerdCore::VAR> l) : value(l)
 	{
 		object[N::__proto__] = NerdCore::Global::Array[N::prototype];
+		ProcessSpreads();
 	}
 	
 	// Methods
@@ -72,6 +73,26 @@ namespace NerdCore::Class
 	{
 		counter++;
 		return this;
+	}
+	void Array::ProcessSpreads()
+	{
+		// Check for vararg enabler
+		if(!value.empty() && value[0].type == Enum::VarArg){
+			value.erase(value.begin()); // Remove the vararg enabler
+
+			// Search for spreads
+			for (auto it = value.begin(); it != value.end(); ++it) {
+			    if(it->type == Enum::VarArg){
+					it->type = Enum::Array; // Change it back to original type
+
+					var vararr = *it;
+					auto arr = __NERD_ARRAY(vararr)->value;
+
+					it = value.erase(it);
+					it = value.insert(it, arr.begin(), arr.end()) + (arr.size()-1);
+				}
+			}
+		}
 	}
 	// Native cast
 	Array::operator bool() const noexcept { return true; }

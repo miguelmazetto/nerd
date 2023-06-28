@@ -32,7 +32,7 @@ namespace NerdCore
 
 	VAR::~VAR()
 	{
-		if(type > NerdCore::Enum::Type::Number)
+		if(type >= NerdCore::Enum::Type::String)
 		{
 			((NerdCore::Class::Base*)data.ptr)->Delete();
 		}

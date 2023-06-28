@@ -39,6 +39,7 @@ namespace NerdCore::Class
 		Function();
 		Function(void* val);
 		Function(void* val, NerdCore::VAR __this);
+
 		// Properties
 		count_t counter = 0;
 
@@ -70,23 +71,27 @@ namespace NerdCore::Class
 		template <class... Args>
 		NerdCore::VAR operator()(NerdCore::VAR __NERD_THIS, Args... args)
 		{
-			#ifdef _MSC_VER
-			// MSVC does not support zero sized arrays
-			NerdCore::VAR _args_[] = { __NERD_THIS, args... };
-			NerdCore::VAR* _args = &_args_[1];
-			#else
-			NerdCore::VAR _args[] = { args... };
-			#endif
+			T::vector_t vec = { args... };
 
-			int i = sizeof...(args);
+			// Check for VarArg enabler
+			if (!vec.empty() && vec[0].type == Enum::VarArg) {
+				auto temp = new C::Array(vec);
+				temp->ProcessSpreads();
+				vec = temp->value;
+				delete temp;
+			}
+
+			NerdCore::VAR* _args = vec.data();
+			int arglen = vec.size();
+
 			#ifndef __NERD__OBJECT_VECTOR
 			if(__NERD_THIS.type == NerdCore::Enum::Type::Null)
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object[N::__this__], _args, i);
+				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), object[N::__this__], _args, arglen);
 			}
 			else
 			{
-				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), __NERD_THIS, _args, i);
+				return std::invoke((*static_cast<NerdCore::Type::function_t *>(value)), __NERD_THIS, _args, arglen);
 			}
 			#else
 			return (*static_cast<NerdCore::Type::function_t *>(value))(__NERD_THIS, _args, i);

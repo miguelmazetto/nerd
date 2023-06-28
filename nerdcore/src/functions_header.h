@@ -109,3 +109,5 @@ double __NERD_Str_To_Double(m _left)
 /* END Number MANIPULATION */
 
 NerdCore::VAR getArguments(int argc, char** argv);
+
+NerdCore::VAR __NERD_SPREAD(NerdCore::VAR arr);

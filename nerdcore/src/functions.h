@@ -21,6 +21,8 @@
 
 */
 
+using namespace NerdCore::Global;
+
 NerdCore::VAR getArguments(int argc, char** argv)
 {
 	NerdCore::VAR __NJS_ARGS = new NerdCore::Class::Array();
@@ -29,4 +31,11 @@ NerdCore::VAR getArguments(int argc, char** argv)
 		__NJS_ARGS[i] = argv[i];
 	}
 	return __NJS_ARGS;
+}
+
+var __NERD_SPREAD(NerdCore::VAR arr) {
+	if (arr.type != Enum::Array) return arr;
+	var ret = arr;
+	ret.type = Enum::VarArg;
+	return ret;
 }

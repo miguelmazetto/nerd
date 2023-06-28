@@ -125,7 +125,8 @@ function is_Binary_Expression(ast){
         .indexOf(ast.type) != -1;
 }
 
-const types_string = ['string','number','boolean','object','function'];
+const enums =        ['Enum::String', 'Enum::Number', 'Enum::Boolean', 'Enum::Object', 'Enum::Function', 'Enum::Null', 'Enum::Null','Enum::Array'];
+const types_string = ['string',       'number',       'boolean',       'object',       'function',       'undefined',  'null',      'Array'];
 
 function typeof_optimization(ast, tab, ctx){
     if(!is_Binary_Expression(ast)) return ast;
@@ -137,8 +138,6 @@ function typeof_optimization(ast, tab, ctx){
     function istypestr(ast){
         return ast.type == 'Literal' && types_string.indexOf(ast.value) != -1;
     }
-
-    const enums = ['Enum::String', 'Enum::Number', 'Enum::Boolean', 'Enum::Object', 'Enum::Function'];
 
     if(istypeof(ast.left) && istypestr(ast.right)){
 
@@ -156,9 +155,6 @@ function typeof_optimization(ast, tab, ctx){
         ast.left = {type: 'NativeExpression',
             content: enums[types_string.indexOf(ast.left.value)]}
 
-    }else{
-        //ast.left = typeof_optimization(ast.left, tab, ctx);
-        //ast.right = typeof_optimization(ast.right, tab, ctx);
     }
 
     return ast
@@ -167,6 +163,13 @@ function typeof_optimization(ast, tab, ctx){
 function _generateCode(AST, tab, ctx){
     if(!AST) return ""
     var ret = ""
+    var multcase = false
+
+    var enable_vararg = function(arr){
+        if(arr[0].type != 'Identifier' || arr[0].name != 'G::EVarArg')
+            arr.unshift({type: 'Identifier', name: 'G::EVarArg'})
+    }
+
     switch(String(AST.type)){
         case 'Program':
             ctx.scope = 0;
@@ -192,12 +195,21 @@ function _generateCode(AST, tab, ctx){
 
         case 'CallExpression':
             var nthis = {type: 'Identifier', name: 'G::null'}
+
             if(AST.callee.type == "MemberExpression"){
                 var prop = generateCode(AST.callee.property, tab, ctx);
                 switch(prop){
-                    case 'apply':
+                    case 'call':
                         if(AST.arguments.length > 0)
                             nthis = AST.arguments.shift();
+                        AST.callee = AST.callee.object;
+                        break;
+                    case 'apply':
+                        if(AST.arguments.length > 0){
+                            nthis = AST.arguments[0];
+                            if(AST.arguments.length > 0)
+                                AST.arguments = [{ type: 'SpreadElement', argument: AST.arguments[1] }]
+                        }
                         AST.callee = AST.callee.object;
                         break;
                 }
@@ -235,6 +247,10 @@ function _generateCode(AST, tab, ctx){
                 }else{
                     throw "TODO: Only static requires are allowed!"
                 }
+            }
+
+            if(AST.arguments.some(elem => elem.type == 'SpreadElement')){
+                AST.arguments.unshift({type: 'Identifier', name: 'G::EVarArg'})
             }
 
             if(['arguments','length_of','type_of'].indexOf(callee) == -1)
@@ -393,7 +409,6 @@ function _generateCode(AST, tab, ctx){
         case 'FunctionDeclaration':
             ctx.funcvar = generateCode(AST.id, tab, ctx)
             ret = tab + "var " + ctx.funcvar + " = "
-
         case 'ArrowFunctionExpression':
         case 'FunctionExpression':
             //if(!ctx.funcvar && ctx.stack[1].type == 'AssignmentExpression' &&
@@ -401,14 +416,16 @@ function _generateCode(AST, tab, ctx){
             //    ret = ''
             //    ctx.funcvar = generateCode(ctx.stack[1].left, tab, ctx)
             //}
+
             if(ctx.funcvar){
                 var funcvar = ctx.funcvar;
                 ctx.funcvar = false;
                 ret += '__NERD_Create_Var_Scoped_Copy_Anon_With_Ref(' +
                     funcvar + ","
             }else{
-                ret = '__NERD_Create_Var_Scoped_Copy_Anon('
+                ret = '__NERD_Create_Var_Scoped_Anon('
             }
+
             ctx.ignorebracket = true
             ret += "{\n"
             var ntab = tab + "\t"
@@ -422,14 +439,20 @@ function _generateCode(AST, tab, ctx){
                 //        " = __NERD_VARARGS["+i+"];\n"
                 //}
                 var fnargs = [];
+                var restparam = false;
                 for (let i = 0; i < AST.params.length; i++) {
                     const e = AST.params[i];
-                    fnargs.push([
-                        e.type == 'AssignmentPattern' ? generateCode(e.left, ntab, ctx) : generateCode(e, ntab, ctx),
-                        e.type == 'AssignmentPattern' ? '='+generateCode(e.right, ntab, ctx) : '']
-                            .join(','))
+                    if(e.type == 'RestElement'){
+                        restparam = e.argument
+                    }else{
+                        fnargs.push([
+                            e.type == 'AssignmentPattern' ? generateCode(e.left, ntab, ctx) : generateCode(e, ntab, ctx),
+                            e.type == 'AssignmentPattern' ? '='+generateCode(e.right, ntab, ctx) : '']
+                                .join(','))
+                    }
                 }
                 var nfnargs = [];
+                
                 for (var i = 0; i < fnargs.length; i++) {
                     var remaining = fnargs.length - i;
                     if(remaining >= 4){
@@ -449,11 +472,21 @@ function _generateCode(AST, tab, ctx){
                     }
                     nfnargs.push('__NERD_FNARG_DECL1('+i+','+fnargs[i]+');')
                 }
+
+                if(restparam){
+                    nfnargs.push('__NERD_FNRESTPARAM_DECL('+generateCode(restparam, ntab, ctx)+', '+
+                        fnargs.length+');')
+                }
+
                 ret += ntab + nfnargs.join("\n"+ntab) + "\n";
             }
 
-            ret += generateCode(AST.body, tab, ctx) +
-                ntab + 'return G::null;\n'+tab+'})'
+            if(AST.type == "ArrowFunctionExpression" && AST.body.type != 'BlockStatement')
+                ret += ntab + 'return ' + generateCode(AST.body, tab, ctx) +
+                    ';\n'+tab+'})'
+            else
+                ret += generateCode(AST.body, tab, ctx) +
+                    ntab + 'return G::null;\n'+tab+'})'
 
             if(AST.type == "FunctionDeclaration")
                 ret += ";\n"
@@ -468,6 +501,9 @@ function _generateCode(AST, tab, ctx){
                    generateCode(AST.right, tab, ctx)
         
         case 'ArrayExpression':
+            if(AST.elements.some(elem => elem.type == 'SpreadElement')){
+                AST.elements.unshift({type: 'Identifier', name: 'G::EVarArg'})
+            }
             return 'var(new C::Array({' + genArray(AST.elements, tab, ctx).join(", ") + '}))'
         
         case 'ObjectExpression':
@@ -605,6 +641,9 @@ function _generateCode(AST, tab, ctx){
                         genArray(AST.arguments, tab, ctx).join(", ")+")"
             }
 
+        case 'SpreadElement':
+            return '__NERD_SPREAD('+generateCode(AST.argument, tab, ctx)+')'
+
         case 'NativeBlock':
             return AST.content + '\n'
 
@@ -632,6 +671,7 @@ function _generateCode(AST, tab, ctx){
 
         default:
             console.log("Unknown type:",AST)
+            console.log(ctx.stack)
             return ''
     }
 }
@@ -666,7 +706,7 @@ var packages = {}
 var processed_modules = {}
 
 function _processFile(fin, inroot, outroot, options){
-    console.log("inroot = "+inroot,"fin = "+fin)
+    //console.log("inroot = "+inroot,"fin = "+fin)
     console.log("Processing "+path.relative(inroot, fin))
     options = options || {}
 
@@ -796,6 +836,7 @@ function processExports(dirout, env){
     out += "namespace NerdCore::Global::N\n{\n"
     out += '\tconst H::hkey __proto__ = H::hkey{"__proto__", H::hash("__proto__")};\n'
     out += '\tconst H::hkey __this__ = H::hkey{"this", H::hash("this")};\n'
+    out += '\tconst H::hkey length = H::hkey{"length", H::hash("length")};\n'
     for (const key in globalkeys) {
         if(key == "this") continue;
         out += '\tconst H::hkey '+key+' = H::hkey{"'+key+'", H::hash("'+key+'")};\n'

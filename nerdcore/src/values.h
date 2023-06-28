@@ -24,20 +24,21 @@
 namespace NerdCore::Global
 {	
 	using var = NerdCore::VAR;
-	NerdCore::VAR null = __NERD_Create_Null();
-	NerdCore::VAR undefined = __NERD_Create_Null();
-	NerdCore::VAR __False = __NERD_Create_Boolean(0);
-	NerdCore::VAR __True = __NERD_Create_Boolean(1);
-	NerdCore::VAR Infinity = std::numeric_limits<double>::infinity();
-	NerdCore::VAR NaN = std::numeric_limits<double>::quiet_NaN();
-	NerdCore::VAR String = __NERD_Create_Var_Unscoped_Anon( return null; );
-	NerdCore::VAR Object = __NERD_Create_Var_Unscoped_Anon( return null; );
-	NerdCore::VAR Array = __NERD_Create_Var_Unscoped_Anon( return new NerdCore::Class::Array(); );
-	NerdCore::VAR Function = __NERD_Create_Var_Unscoped_Anon( return null; );
-	NerdCore::VAR global = new NerdCore::Class::Object();
-	NerdCore::VAR __NERD_THIS = global;
-	NerdCore::VAR __NERD_ARGS = new NerdCore::Class::Array();
-	NerdCore::VAR require;
+	var null = __NERD_Create_Null();
+	var undefined = __NERD_Create_Null();
+	var __False = __NERD_Create_Boolean(0);
+	var __True = __NERD_Create_Boolean(1);
+	var Infinity = std::numeric_limits<double>::infinity();
+	var NaN = std::numeric_limits<double>::quiet_NaN();
+	var EVarArg = var(Enum::VarArg, 1);
+	
+	var String = __NERD_Create_Var_Unscoped_Anon( return null; );
+	var Object = __NERD_Create_Var_Unscoped_Anon( return null; );
+	var Array = __NERD_Create_Var_Unscoped_Anon( return new NerdCore::Class::Array(); );
+	var global = new NerdCore::Class::Object();
+	var __NERD_THIS = global;
+	var __NERD_ARGS = new NerdCore::Class::Array();
+	var require;
 	__NERD_STDENV_C();
 
 	namespace H {

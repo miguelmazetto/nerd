@@ -28,6 +28,7 @@ namespace NerdCore::Enum
 		Null,
 		Boolean,
 		Number,
+		VarArg,
 		String,
 		Native,
 		NativeTPL,

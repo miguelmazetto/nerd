@@ -33,26 +33,20 @@ namespace NerdCore::Class
 	{
 		(*this)[N::prototype] = new NerdCore::Class::Object();
 	}
+
 	Function::Function(void *val)
 	{
 		counter++;
 		value = (NerdCore::Type::function_t*)val;
-		var* proto = &object[N::prototype];
-		if(proto->type == NerdCore::Enum::Type::Null)
-		{
-			*proto = new NerdCore::Class::Object();
-		}
+		object[N::prototype] = new NerdCore::Class::Object();
 	}
+
 	Function::Function(void *val, NerdCore::VAR __this)
 	{
 		counter++;
 		operator[](N::__this__) = __this;
 		value = (NerdCore::Type::function_t*)val;
-		var* proto = &object[N::prototype];
-		if(proto->type == NerdCore::Enum::Type::Null)
-		{
-			*proto = new NerdCore::Class::Object();
-		}
+		object[N::prototype] = new NerdCore::Class::Object();
 	}
 	// Methods
 	inline void Function::Delete() noexcept

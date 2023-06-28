@@ -247,6 +247,9 @@ namespace NerdCore
 		VAR operator>>=(const VAR &_v1);
 		VAR operator<<(const VAR &_v1);
 		VAR operator<<=(const VAR &_v1);
+		/// Logical operators
+		// inline VAR operator&&(const VAR &_v1) { return (bool)this && (bool)_v1; }
+		// inline VAR operator||(const VAR &_v1) { return (bool)this || (bool)_v1; }
 
 		explicit operator int() const;
 		operator int();
